@@ -2,7 +2,7 @@ import pytest
 from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
-from madvid.video_renderer import render_video
+from madvid.video_renderer import _make_frame, render_video
 
 
 def test_library_generates_video_from_project(tmp_path):
@@ -33,6 +33,18 @@ def test_final_render_requires_real_product_screenshot(tmp_path):
         render_video("Demo App", output_dir=str(tmp_path), duration=15)
 
 
+def test_real_screenshots_cross_dissolve_between_scenes():
+    red_screen = Image.new("RGB", (640, 360), (230, 35, 40))
+    blue_screen = Image.new("RGB", (640, 360), (35, 50, 230))
+
+    transition = _make_frame(480, 270, "Demo", "cinematic", 244, 480, [red_screen, blue_screen])
+
+    red, green, blue = transition.getpixel((240, 135))
+    assert red > 50
+    assert blue > 50
+    assert green < 60
+
+
 def test_generate_video_function_uses_project_root_and_provider(tmp_path):
     project_dir = tmp_path / "instant-app"
     project_dir.mkdir()
@@ -48,4 +60,4 @@ def test_generate_video_function_uses_project_root_and_provider(tmp_path):
 
     assert result["metadata"]["style"] == "cinematic"
     assert result["metadata"]["duration"] == 20
-    assert result["metadata"]["visualSource"] == "generated_mockup"
+    assert result["metadata"]["visualSource"] == "no_product_screenshots"
