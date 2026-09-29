@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Optional
-
 import imageio.v3 as iio
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from .asset_manager import ensure_output_dir, write_json
 from .styles import get_style
@@ -35,7 +31,6 @@ def _make_frame(width: int, height: int, product_name: str, style_name: str, fra
         color = (30 + y // 20, 41, 59) if y % 40 == 0 else (15, 23, 42)
         draw.rectangle((0, y, width, y + 20), fill=color)
     # product block
-    pad = 80
     card_left = width // 6
     card_top = height // 5
     card_w = width - 2 * card_left
@@ -66,7 +61,7 @@ def render_video(
     style: str = "minimal",
     orientation: str = "landscape",
     preview: bool = False,
-    storyboard: Optional[list] = None,
+    storyboard: list | None = None,
 ) -> tuple[str, str]:
     output_path = ensure_output_dir(output_dir)
     width, height = _resolve_resolution(orientation, preview=preview)

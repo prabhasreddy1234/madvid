@@ -5,11 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
-from typing import Optional
 
 from .asset_manager import ensure_output_dir
-from .config import Config, load_config, load_project_config
+from .config import load_config, load_project_config
 from .project_analyzer import analyze_project
 from .security import filter_sensitive_data
 from .source_resolver import SourceType, resolve_source
@@ -66,7 +64,7 @@ def _safe_product_context(project_root: str, source_type: SourceType) -> dict:
     }
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     project_root = os.getcwd()

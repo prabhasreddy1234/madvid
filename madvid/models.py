@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -37,10 +37,10 @@ class ProductContext:
     target_user: str = "Product users"
     value_proposition: str = "Clear and useful product experience"
     primary_workflow: str = "Main product workflow"
-    features: List[str] = field(default_factory=list)
+    features: list[str] = field(default_factory=list)
     visual_identity: str = "Clean and modern product UI"
-    important_screens: List[str] = field(default_factory=list)
+    important_screens: list[str] = field(default_factory=list)
     cta: str = "Get started"
     source_type: str = "PROJECT"
-    source_url: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    source_url: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)

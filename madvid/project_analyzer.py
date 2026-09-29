@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 from .models import ProductContext
@@ -78,7 +77,7 @@ def analyze_project(project_root: str = ".") -> ProductContext:
         product_name=product_name,
         product_category=project_type.title() + " app",
         target_user="Product users",
-        value_proposition=f"Simplify workflows and help users get results faster.",
+        value_proposition="Simplify workflows and help users get results faster.",
         primary_workflow="Core user journey",
         features=features[:5],
         visual_identity="Clean, modern product experience",
