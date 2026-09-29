@@ -70,6 +70,46 @@ python -m pip install -e .
 
 ## Quick start
 
+### Python library usage
+
+MADVID is also a proper Python library for any application or AI workflow that needs to generate a 15–30 second product intro video from a project or URL.
+
+```python
+from madvid import MADVID, LocalProvider
+
+client = MADVID(llm_provider=LocalProvider())
+result = client.generate_from_project(
+    project_root=".",
+    duration=20,
+    style="minimal",
+    preview=True,
+)
+
+print(result["video_path"])
+print(result["metadata"]["duration"])
+```
+
+You can also pass any custom LLM provider that implements `analyze()`:
+
+```python
+from madvid import MADVID
+
+class MyLLM:
+    name = "my-llm"
+
+    def analyze(self, prompt: str, context: dict | None = None) -> str:
+        return "Summarized product story for a compelling intro video."
+
+client = MADVID(llm_provider=MyLLM())
+result = client.generate(
+    project_root=".",
+    duration=20,
+    style="cinematic",
+)
+```
+
+### CLI usage
+
 Run MADVID against the current project directory:
 
 ```bash
