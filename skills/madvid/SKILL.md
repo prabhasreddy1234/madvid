@@ -30,7 +30,9 @@ madvid --preview --duration 20 --style minimal
 
 ### Register in an AI terminal
 
-1. Copy the `skills/madvid` directory to the target AI-terminal skill directory.
+1. Install the skill with `./scripts/install.sh`, or copy `skills/madvid` to the
+	target AI-terminal skill directory. For Claude Code, the personal skill path
+	is `~/.claude/skills/madvid`.
 2. Reload the terminal or skill registry.
 3. Invoke `/madvid`.
 

@@ -14,10 +14,14 @@ python3 -m pip install -e .
 
 ## Register as a skill
 
-Copy the `skills/madvid` directory into the user's skill directory or use the install helper:
+Install the skill for Claude Code with the helper. It defaults to
+`~/.claude/skills/madvid`; pass a different skills directory as the first argument
+for another AI terminal:
 
 ```bash
 ./scripts/install.sh
+# Or, for a different AI terminal:
+./scripts/install.sh /path/to/skills
 ```
 
-After reloading the terminal, invoke `/madvid`.
+After reloading Claude Code, invoke `/madvid`.
