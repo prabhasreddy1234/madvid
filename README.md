@@ -126,6 +126,34 @@ MADVID never uploads source code or secrets without explicit provider configurat
 
 The repository includes a skill definition under `skills/madvid` and a generic adapter model so the project can be reused by different AI-terminal environments. This allows a user to register MADVID as a reusable skill and invoke it with `/madvid` after installation.
 
+## AI CLI compatibility
+
+MADVID is designed to be reusable across AI-related CLIs through a thin adapter model rather than being tied to one vendor.
+
+Supported adapter families:
+
+- GitHub Copilot CLI
+- OpenAI Codex CLI
+- Claude Code
+- Gemini CLI
+- Aider
+- generic shell-based wrappers
+
+Generic usage:
+
+```bash
+madvid --help
+madvid --preview --duration 20 --style minimal
+```
+
+Wrapper installation:
+
+```bash
+./scripts/install_ai_cli_adapters.sh
+```
+
+This installs small command wrappers that delegate to the same MADVID CLI implementation.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution guidelines, and extension patterns.

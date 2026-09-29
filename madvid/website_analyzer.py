@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 import requests
 
@@ -36,7 +35,7 @@ def analyze_website(url: str) -> ProductContext:
         if hasattr(response, "raise_for_status"):
             response.raise_for_status()
         html = getattr(response, "text", "")
-    except Exception:
+    except (requests.RequestException, OSError, ValueError, TypeError):
         html = ""
 
     product_name = _extract_title(html)
