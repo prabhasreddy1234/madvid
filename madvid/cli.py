@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 
 from .asset_manager import ensure_output_dir
 from .config import load_config, load_project_config
@@ -133,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         voice_path.write_text("Voice-over disabled.", encoding="utf-8")
 
+    metadata_path = Path(metadata_path)
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     metadata["sourceType"] = source.value
     metadata["outputPath"] = str(product_intro_path)

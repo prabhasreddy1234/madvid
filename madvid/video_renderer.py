@@ -70,7 +70,7 @@ def render_video(
     total_frames = fps * duration
     video_name = "preview.mp4" if preview else "product-intro.mp4"
     video_path = output_path / video_name
-    writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8)
+    writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8, macro_block_size=1)
     for index in range(total_frames):
         frame = _make_frame(width, height, product_name, style, index, total_frames)
         writer.append_data(np.asarray(frame))
