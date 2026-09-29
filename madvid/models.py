@@ -15,6 +15,10 @@ class StoryboardScene:
     voice_over: str
     transition: str
     source_asset: str
+    camera_focus: tuple[float, float] = (0.5, 0.5)
+    highlight_box: tuple[float, float, float, float] | None = None
+    cursor_target: tuple[float, float] | None = None
+    cursor_click: bool = False
 
     def as_markdown(self) -> str:
         lines = [

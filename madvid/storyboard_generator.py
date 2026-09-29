@@ -44,6 +44,8 @@ def generate_storyboard(
     workflow = primary_workflow.strip() or features[0]
     promise = value_proposition.strip() or f"A clearer way to use {product_name}."
     action = cta.strip() or "Explore the product"
+    key_features = features[1:] if workflow == features[0] else features
+    key_features = (key_features or [workflow])[:3 if duration >= 25 else 2]
     source_label = source_type.upper()
     if source_label == "WEBSITE":
         capture_type = "Website screen"
@@ -66,10 +68,17 @@ def generate_storyboard(
 
     timeline = [
         (
-            "Product reveal",
-            visual(0, "Open on the strongest product view and establish the promise"),
-            product_name,
+            "Opening hook",
+            visual(0, "Lead with the product promise over an immediate real UI reveal"),
             promise,
+            promise,
+            "Product hook",
+        ),
+        (
+            "Product reveal",
+            visual(0, "Reveal the product name against its authentic home screen"),
+            product_name,
+            "",
             "Product hero",
         ),
         (
@@ -79,36 +88,30 @@ def generate_storyboard(
             workflow,
             "Core workflow",
         ),
-        (
-            "Key benefit",
-            visual(2, "Reveal the useful outcome or strongest supporting feature"),
-            features[1] if len(features) > 1 else features[0],
-            features[1] if len(features) > 1 else features[0],
-            "Feature detail",
-        ),
+    ]
+    for feature_index, feature in enumerate(key_features):
+        timeline.append(
+            (
+                "Feature spotlight",
+                visual(2 + feature_index, "Land on a real feature detail and let the benefit read"),
+                feature,
+                feature,
+                f"Feature {feature_index + 1}",
+            )
+        )
+    timeline.append(
         (
             "Final call to action",
             visual(len(screens) - 1, "Close on the product and leave the call to action clear"),
             action,
-            action,
+            "",
             "Call to action",
-        ),
-    ]
-    if duration >= 25 and len(features) > 2:
-        timeline.insert(
-            -1,
-            (
-                "More to explore",
-                visual(2, "Show another distinct product moment without repeating the previous shot"),
-                features[2],
-                features[2],
-                "More features",
-            ),
         )
+    )
 
     scenes: list[StoryboardScene] = []
     scene_count = len(timeline)
-    transitions = ("Cross dissolve", "Directional push", "Cross dissolve", "Soft wipe", "Cross dissolve")
+    transitions = ("Cross dissolve", "Cross dissolve", "Directional push", "Cross dissolve", "Soft wipe")
     for index, (scene, visual, text_overlay, voice_over, source_asset) in enumerate(timeline):
         start = round(duration * index / scene_count)
         end = round(duration * (index + 1) / scene_count)

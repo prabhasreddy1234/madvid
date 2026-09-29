@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import tempfile
+import wave
 from functools import lru_cache
 
 import imageio.v2 as iio
+import imageio_ffmpeg
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -59,6 +64,184 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, 
     return lines
 
 
+def _compose_premium_shot(
+    width: int,
+    height: int,
+    image: Image.Image | None,
+    scene: object | None,
+    progress: float,
+) -> Image.Image:
+    style = get_style("premium")
+    accent = _rgb(style.accent)
+    eased = progress * progress * (3 - 2 * progress)
+    frame = Image.new("RGB", (width, height), _rgb(style.background))
+    draw = ImageDraw.Draw(frame)
+    top_color = _rgb(style.background)
+    bottom_color = (27, 24, 43)
+    for band in range(32):
+        blend = band / 31
+        color = tuple(int(top_color[channel] * (1 - blend) + bottom_color[channel] * blend) for channel in range(3))
+        y0 = band * height // 32
+        y1 = (band + 1) * height // 32
+        draw.rectangle((0, y0, width, y1), fill=color)
+
+    panel_width = int(width * 0.88)
+    panel_height = int(height * 0.78)
+    panel_left = (width - panel_width) // 2
+    panel_top = int(height * 0.045)
+    radius = max(8, int(min(width, height) * 0.014))
+    shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle(
+        (panel_left, panel_top + max(5, height // 90), panel_left + panel_width, panel_top + panel_height + max(5, height // 90)),
+        radius=radius,
+        fill=(0, 0, 0, 115),
+    )
+    frame = Image.alpha_composite(frame.convert("RGBA"), shadow)
+
+    focus = getattr(scene, "camera_focus", (0.5, 0.5))
+    focus_x = min(0.98, max(0.02, 0.5 + (focus[0] - 0.5) * eased))
+    focus_y = min(0.98, max(0.02, 0.5 + (focus[1] - 0.5) * eased))
+    zoom = 1.015 + 0.13 * eased
+    if image is not None:
+        camera = ImageOps.fit(
+            image,
+            (max(panel_width, int(panel_width * zoom)), max(panel_height, int(panel_height * zoom))),
+            method=Image.Resampling.LANCZOS,
+            centering=(focus_x, focus_y),
+        )
+        crop_left = (camera.width - panel_width) // 2
+        crop_top = (camera.height - panel_height) // 2
+        screen = camera.crop((crop_left, crop_top, crop_left + panel_width, crop_top + panel_height)).convert("RGBA")
+    else:
+        screen = Image.new("RGBA", (panel_width, panel_height), (26, 25, 34, 255))
+        ImageDraw.Draw(screen).text(
+            (panel_width // 2, panel_height // 2),
+            "PRODUCT PREVIEW",
+            fill=(205, 204, 216, 255),
+            font=_font(max(16, int(height * 0.035)), True),
+            anchor="mm",
+        )
+
+    screen_mask = Image.new("L", (panel_width, panel_height), 0)
+    ImageDraw.Draw(screen_mask).rounded_rectangle(
+        (0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=255
+    )
+    screen.putalpha(screen_mask)
+    frame.alpha_composite(screen, (panel_left, panel_top))
+    draw = ImageDraw.Draw(frame)
+    draw.rounded_rectangle(
+        (panel_left, panel_top, panel_left + panel_width - 1, panel_top + panel_height - 1),
+        radius=radius,
+        outline=(255, 255, 255, 48),
+        width=max(1, width // 1200),
+    )
+
+    def project(point_x: float, point_y: float) -> tuple[int, int]:
+        return (
+            int(panel_left + panel_width / 2 + (point_x - focus_x) * panel_width * zoom),
+            int(panel_top + panel_height / 2 + (point_y - focus_y) * panel_height * zoom),
+        )
+
+    highlight_box = getattr(scene, "highlight_box", None)
+    if highlight_box and 0.18 < progress < 0.88:
+        x1, y1 = project(highlight_box[0], highlight_box[1])
+        x2, y2 = project(highlight_box[2], highlight_box[3])
+        pulse = max(0.0, 1.0 - abs(progress - 0.57) / 0.31)
+        highlight = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        highlight_draw = ImageDraw.Draw(highlight)
+        highlight_draw.rounded_rectangle(
+            (x1, y1, x2, y2),
+            radius=max(5, height // 100),
+            fill=(*accent, int(18 + 20 * pulse)),
+            outline=(*accent, int(100 + 140 * pulse)),
+            width=max(2, width // 500),
+        )
+        frame = Image.alpha_composite(frame, highlight)
+
+    cursor_target = getattr(scene, "cursor_target", None)
+    if cursor_target and 0.12 < progress < 0.9:
+        start = (min(0.96, cursor_target[0] + 0.15), min(0.96, cursor_target[1] + 0.11))
+        travel = min(1.0, max(0.0, (progress - 0.14) / 0.38))
+        travel = travel * travel * (3 - 2 * travel)
+        current = (
+            start[0] + (cursor_target[0] - start[0]) * travel,
+            start[1] + (cursor_target[1] - start[1]) * travel,
+        )
+        cursor_x, cursor_y = project(*current)
+        cursor_size = max(12, int(min(width, height) * 0.046))
+        cursor = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        cursor_draw = ImageDraw.Draw(cursor)
+        pointer = [
+            (cursor_x, cursor_y),
+            (cursor_x, cursor_y + cursor_size),
+            (cursor_x + cursor_size * 0.27, cursor_y + cursor_size * 0.73),
+            (cursor_x + cursor_size * 0.48, cursor_y + cursor_size * 1.02),
+            (cursor_x + cursor_size * 0.62, cursor_y + cursor_size * 0.92),
+            (cursor_x + cursor_size * 0.43, cursor_y + cursor_size * 0.65),
+            (cursor_x + cursor_size * 0.82, cursor_y + cursor_size * 0.63),
+        ]
+        cursor_draw.polygon([(x + 2, y + 3) for x, y in pointer], fill=(0, 0, 0, 150))
+        cursor_draw.polygon(pointer, fill=(255, 255, 255, 255), outline=(21, 19, 29, 255))
+        click_progress = min(1.0, max(0.0, (progress - 0.5) / 0.32)) if getattr(scene, "cursor_click", False) else 0.0
+        if click_progress:
+            target_x, target_y = project(*cursor_target)
+            ring_radius = int(cursor_size * (0.55 + click_progress * 0.9))
+            ring_alpha = int(165 * (1.0 - click_progress))
+            cursor_draw.ellipse(
+                (target_x - ring_radius, target_y - ring_radius, target_x + ring_radius, target_y + ring_radius),
+                outline=(*accent, ring_alpha),
+                width=max(2, width // 600),
+            )
+        frame = Image.alpha_composite(frame, cursor)
+
+    # Keep a restrained lower-third for copy without covering the product UI.
+    draw = ImageDraw.Draw(frame)
+    copy_top = int(height * 0.855)
+    copy_bottom = int(height * 0.985)
+    for band in range(20):
+        blend = band / 19
+        alpha = int(4 + 12 * blend)
+        y0 = copy_top + band * (copy_bottom - copy_top) // 20
+        y1 = copy_top + (band + 1) * (copy_bottom - copy_top) // 20
+        draw.rectangle((0, y0, width, y1), fill=(8, 8, 13, alpha))
+
+    headline = getattr(scene, "text_overlay", "") or ""
+    description = getattr(scene, "voice_over", "") or ""
+    text_alpha = int(255 * min(1.0, max(0.0, (progress - 0.06) / 0.2)))
+    lift = int(height * 0.012 * (1.0 - eased))
+    text_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    text_draw = ImageDraw.Draw(text_layer)
+    text_left = int(width * 0.075)
+    text_draw.rounded_rectangle(
+        (text_left, copy_top + int(height * 0.012), text_left + int(width * 0.028), copy_top + int(height * 0.017)),
+        radius=3,
+        fill=(*accent, text_alpha),
+    )
+    title_font = _font(max(22, int(height * 0.052)), True)
+    title_lines = _wrap_text(text_draw, headline[:90], title_font, int(width * 0.84))
+    title_y = copy_top + int(height * 0.027) + lift
+    line_height = int(height * 0.06)
+    for index, line in enumerate(title_lines[:2]):
+        text_draw.text(
+            (text_left, title_y + index * line_height),
+            line,
+            fill=(255, 255, 255, text_alpha),
+            font=title_font,
+            stroke_width=max(0, height // 700),
+            stroke_fill=(12, 11, 18, text_alpha),
+        )
+    if description:
+        description_font = _font(max(13, int(height * 0.022)))
+        description_y = title_y + min(len(title_lines), 2) * line_height
+        text_draw.text(
+            (text_left, description_y),
+            description[:100],
+            fill=(225, 224, 234, int(text_alpha * 0.88)),
+            font=description_font,
+        )
+    return Image.alpha_composite(frame, text_layer).convert("RGB")
+
+
 def _compose_shot(
     width: int,
     height: int,
@@ -70,6 +253,9 @@ def _compose_shot(
     scene_count: int,
     progress: float,
 ) -> Image.Image:
+    if style_name.lower() == "premium":
+        return _compose_premium_shot(width, height, image, scene, progress)
+
     style = get_style(style_name)
     background = _rgb(style.background)
     accent = _rgb(style.accent)
@@ -344,11 +530,108 @@ def _make_frame(
     return current
 
 
+def _add_premium_sound_design(video_path, duration: int, storyboard: list) -> None:
+    sample_rate = 48000
+    sample_count = sample_rate * duration
+    time = np.arange(sample_count, dtype=np.float64) / sample_rate
+    audio = np.zeros((sample_count, 2), dtype=np.float64)
+    chords = (
+        (130.81, 164.81, 196.0, 261.63),
+        (110.0, 164.81, 220.0, 293.66),
+        (146.83, 196.0, 220.0, 293.66),
+        (123.47, 155.56, 196.0, 246.94),
+    )
+    chord_length = duration / len(chords)
+    for chord_index, notes in enumerate(chords):
+        start = int(chord_index * chord_length * sample_rate)
+        end = min(sample_count, int((chord_index + 1) * chord_length * sample_rate))
+        local = np.arange(end - start, dtype=np.float64) / sample_rate
+        envelope = np.minimum(np.clip(local / 0.8, 0, 1), np.clip((chord_length - local) / 0.9, 0, 1))
+        envelope *= 0.9 + 0.1 * np.sin(2 * np.pi * 0.12 * local)
+        for note_index, frequency in enumerate(notes):
+            phase = note_index * 0.13
+            audio[start:end, 0] += np.sin(2 * np.pi * frequency * local + phase) * envelope * 0.018
+            audio[start:end, 1] += np.sin(2 * np.pi * frequency * local + phase + 0.025) * envelope * 0.018
+
+    scene_count = max(len(storyboard), 1)
+    for scene_index, scene in enumerate(storyboard[1:], 1):
+        cue_time = duration * scene_index / scene_count
+        start = int(cue_time * sample_rate)
+        cue_length = min(int(sample_rate * 0.48), sample_count - start)
+        if cue_length <= 0:
+            continue
+        local = np.arange(cue_length, dtype=np.float64) / sample_rate
+        envelope = np.exp(-local * 7.0)
+        chime = (np.sin(2 * np.pi * 660 * local) + 0.42 * np.sin(2 * np.pi * 990 * local)) * envelope * 0.025
+        audio[start:start + cue_length, 0] += chime
+        audio[start:start + cue_length, 1] += chime * 0.92
+
+        if getattr(scene, "cursor_target", None) and getattr(scene, "cursor_click", False):
+            click_start = min(sample_count, start + int(sample_rate * 0.52))
+            click_length = min(int(sample_rate * 0.09), sample_count - click_start)
+            click_time = np.arange(click_length, dtype=np.float64) / sample_rate
+            click_envelope = np.exp(-click_time * 62)
+            click = (np.sin(2 * np.pi * (1250 * click_time - 240 * click_time ** 2)) + 0.22 * np.sin(2 * np.pi * 2100 * click_time)) * click_envelope * 0.045
+            audio[click_start:click_start + click_length, 0] += click
+            audio[click_start:click_start + click_length, 1] += click * 0.82
+
+    fade_in = np.clip(time / 0.8, 0, 1)
+    fade_out = np.clip((duration - time) / 1.1, 0, 1)
+    audio *= (fade_in * fade_out)[:, None]
+    peak = np.max(np.abs(audio))
+    if peak > 0.82:
+        audio *= 0.82 / peak
+    pcm = (np.clip(audio, -1, 1) * 32767).astype(np.int16)
+
+    audio_file = None
+    muxed_path = video_path.with_name(f"{video_path.stem}.with-audio.mp4")
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", dir=video_path.parent, delete=False) as temporary_audio:
+            audio_file = temporary_audio.name
+        with wave.open(audio_file, "wb") as output:
+            output.setnchannels(2)
+            output.setsampwidth(2)
+            output.setframerate(sample_rate)
+            output.writeframes(pcm.tobytes())
+        subprocess.run(
+            [
+                imageio_ffmpeg.get_ffmpeg_exe(),
+                "-y",
+                "-i",
+                str(video_path),
+                "-i",
+                audio_file,
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "160k",
+                "-movflags",
+                "+faststart",
+                "-shortest",
+                str(muxed_path),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+        os.replace(muxed_path, video_path)
+    finally:
+        for temporary_path in (audio_file, str(muxed_path)):
+            if temporary_path and os.path.exists(temporary_path):
+                os.unlink(temporary_path)
+
+
 def render_video(
     product_name: str,
     output_dir: str = "madvid-output",
     duration: int = 20,
-    style: str = "minimal",
+    style: str = "premium",
     orientation: str = "landscape",
     preview: bool = False,
     storyboard: list | None = None,
@@ -377,6 +660,8 @@ def render_video(
         frame = _make_frame(width, height, product_name, style, index, total_frames, visual_images, storyboard)
         writer.append_data(np.asarray(frame))
     writer.close()
+    if style.lower() == "premium":
+        _add_premium_sound_design(video_path, duration, storyboard or [])
     metadata = {
         "productName": product_name,
         "duration": duration,
@@ -387,6 +672,8 @@ def render_video(
         "visualSource": "product_screenshots" if visual_images else "no_product_screenshots",
         "visualAssetCount": len(visual_images),
     }
+    if style.lower() == "premium":
+        metadata["soundtrack"] = "cinematic_ambient_bed_and_ui_cues"
     if storyboard:
         metadata["storyboardCount"] = len(storyboard)
     write_json(output_path / "metadata.json", metadata)

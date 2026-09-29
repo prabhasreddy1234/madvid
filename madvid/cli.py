@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vertical", dest="orientation", action="store_const", const="vertical", help="Render a vertical video")
     parser.add_argument("--landscape", dest="orientation", action="store_const", const="landscape", help="Render a landscape video")
     parser.add_argument("--preview", action="store_true", help="Generate a quick low-resolution preview")
-    parser.add_argument("--style", choices=["minimal", "cinematic"], help="Visual style")
+    parser.add_argument("--style", choices=["minimal", "cinematic", "premium"], help="Visual style")
     return parser
 
 
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         config_payload = {
             "integration": integration,
             "defaultDuration": 20,
-            "defaultStyle": "minimal",
+            "defaultStyle": "premium",
             "defaultOrientation": "landscape",
             "voice": False,
             "preview": False,
@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
 
         print(f"Initialized MADVID project at {target_dir} for integration '{integration}'.")
-        print(f"Next: cd {target_dir} && madvid --preview --duration 20 --style minimal")
+        print(f"Next: cd {target_dir} && madvid --preview --duration 20 --style premium")
         return 0
 
     project_root = os.getcwd()

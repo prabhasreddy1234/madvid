@@ -2,6 +2,7 @@ import pytest
 from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
+from madvid.models import StoryboardScene
 from madvid.storyboard_generator import generate_storyboard
 from madvid.video_renderer import _apply_transition, _make_frame, render_video
 
@@ -27,7 +28,7 @@ def test_library_generates_video_from_project(tmp_path):
     assert result["video_path"].endswith(".mp4")
     assert result["metadata"]["visualSource"] == "product_screenshots"
     assert result["metadata"]["visualAssetCount"] == 1
-    assert result["storyboard"][1].text_overlay == "Fast onboarding"
+    assert result["storyboard"][2].text_overlay == "Fast onboarding"
     assert result["storyboard"][-1].text_overlay == "Explore the product"
 
 
@@ -90,6 +91,30 @@ def test_many_product_screenshots_map_to_available_storyboard_scenes():
 
     assert frame.size == (480, 270)
     assert frame.getbbox() == (0, 0, 480, 270)
+
+
+def test_premium_shot_animates_camera_highlight_and_cursor():
+    screenshot = Image.new("RGB", (1440, 900), (245, 243, 255))
+    scene = StoryboardScene(
+        "0-3s",
+        "Product reveal",
+        "Avento landing page",
+        "Get Started",
+        "",
+        "Cross dissolve",
+        "Hero screen",
+        camera_focus=(0.5, 0.535),
+        highlight_box=(0.43, 0.50, 0.57, 0.57),
+        cursor_target=(0.5, 0.535),
+    )
+
+    opening = _make_frame(480, 270, "Avento", "premium", 0, 24, [screenshot], [scene])
+    interaction = _make_frame(480, 270, "Avento", "premium", 12, 24, [screenshot], [scene])
+    closing = _make_frame(480, 270, "Avento", "premium", 23, 24, [screenshot], [scene])
+
+    assert opening.size == (480, 270)
+    assert opening.tobytes() != interaction.tobytes()
+    assert interaction.tobytes() != closing.tobytes()
 
 
 @pytest.mark.parametrize("transition", ["Directional push", "Soft wipe"])

@@ -51,7 +51,7 @@ MADVID follows a simple pipeline:
 - Website URL analysis
 - Google Play and App Store support
 - 15–30 second output windows
-- Minimal and cinematic visual styles
+- Premium cinematic, minimal, and cinematic visual styles (premium by default)
 - Landscape and vertical orientation
 - Optional voice-over support
 - Preview mode for fast iteration
@@ -108,19 +108,19 @@ madvid
 Generate a quick preview:
 
 ```bash
-madvid --preview --duration 20 --style minimal
+madvid --preview --duration 20 --style premium
 ```
 
 Generate a cinematic final cut:
 
 ```bash
-madvid --duration 25 --style cinematic --landscape --no-voice
+madvid --duration 25 --style premium --landscape --no-voice
 ```
 
 Generate vertical output:
 
 ```bash
-madvid --vertical --duration 18 --style cinematic
+madvid --vertical --duration 18 --style premium
 ```
 
 For product-accurate visuals, place full-screen product captures in `assets/screenshots/`. MADVID also searches `screenshots/`, `screens/`, and `public/`, cycles through captures in the rendered video, and records their use in `metadata.json`. A final export requires at least one real screenshot; preview mode can still run without captures and labels its generic mockup in the metadata.
@@ -139,19 +139,19 @@ madvid "https://apps.apple.com/us/app/example/id123456789"
 
 ```bash
 cd my-project
-madvid --preview --duration 20 --style minimal
+madvid --preview --duration 20 --style premium
 ```
 
 ### Production website demo
 
 ```bash
-madvid https://my-app.com --duration 30 --style cinematic
+madvid https://my-app.com --duration 30 --style premium
 ```
 
 ### Vertical short-form version
 
 ```bash
-madvid --vertical --duration 16 --style minimal --preview
+madvid --vertical --duration 16 --style premium --preview
 ```
 
 ## Command reference
@@ -169,7 +169,7 @@ Available options:
 --vertical            Use vertical orientation
 --landscape           Use landscape orientation
 --preview             Generate a fast preview render
---style {minimal,cinematic}
+--style {premium,minimal,cinematic}
 ```
 
 ## Python library
@@ -183,7 +183,7 @@ client = MADVID(llm_provider=LocalProvider())
 result = client.generate_from_project(
     project_root=".",
     duration=20,
-    style="minimal",
+    style="premium",
     preview=True,
 )
 
@@ -253,7 +253,7 @@ Example:
 ```json
 {
   "defaultDuration": 20,
-  "defaultStyle": "minimal",
+  "defaultStyle": "premium",
   "defaultOrientation": "landscape",
   "voice": false,
   "preview": false

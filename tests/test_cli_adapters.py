@@ -48,4 +48,4 @@ def test_init_command_creates_project_scaffold_for_integration(tmp_path, monkeyp
 
     payload = json.loads(config_path.read_text(encoding="utf-8"))
     assert payload["integration"] == "copilot"
-    assert payload["defaultStyle"] == "minimal"
+    assert payload["defaultStyle"] == "premium"

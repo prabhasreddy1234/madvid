@@ -1,6 +1,6 @@
 ---
 description: Generate a product introduction video from a project, website, or app listing
-argument-hint: "[url] [--duration 20] [--style minimal]"
+argument-hint: "[url] [--duration 20] [--style premium]"
 ---
 
 Use the MADVID CLI from the current repository.
@@ -23,7 +23,7 @@ Examples:
 
 ```bash
 madvid
-madvid --preview --duration 20 --style minimal
+madvid --preview --duration 20 --style premium
 madvid https://example.com
 madvid "https://play.google.com/store/apps/details?id=com.example.app"
 ```

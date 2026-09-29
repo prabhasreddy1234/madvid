@@ -21,8 +21,9 @@ def test_generate_storyboard_creates_scene_sequence():
         primary_workflow="Plan work with your team.",
         cta="Start your project",
     )
-    assert storyboard[0].scene == "Product reveal"
-    assert len(storyboard) >= 3
+    assert storyboard[0].scene == "Opening hook"
+    assert any(scene.scene == "Product reveal" for scene in storyboard)
+    assert len(storyboard) >= 5
     assert storyboard[-1].timestamp.endswith("20s")
     assert storyboard[0].voice_over == "Keep every project moving in one place."
     assert storyboard[-1].text_overlay == "Start your project"
@@ -49,5 +50,5 @@ def test_storyboard_visuals_match_website_and_mobile_app_sources():
     assert "Clean product interface" in website[0].visual
     assert "for Operations teams" in website[0].visual
     assert "Mobile app screen: Welcome screen" in mobile_app[0].visual
-    assert "Daily plan" in mobile_app[1].visual
+    assert "Daily plan" in mobile_app[2].visual
     assert all(scene.transition != "Light flash" for scene in website)

@@ -43,7 +43,7 @@ class MADVID:
         project_root: str = ".",
         *,
         duration: int = 20,
-        style: str = "minimal",
+        style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
     ) -> dict:
@@ -79,7 +79,7 @@ class MADVID:
         *,
         project_root: str = ".",
         duration: int = 20,
-        style: str = "minimal",
+        style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
     ) -> dict:
@@ -121,7 +121,7 @@ class MADVID:
         project_root: str = ".",
         source_url: str | None = None,
         duration: int = 20,
-        style: str = "minimal",
+        style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
     ) -> dict:
@@ -148,7 +148,7 @@ def generate_video(
     project_root: str = ".",
     source_url: str | None = None,
     duration: int = 20,
-    style: str = "minimal",
+    style: str = "premium",
     preview: bool = False,
     orientation: str = "landscape",
     llm_provider: LLMProvider | None = None,

@@ -12,7 +12,7 @@ from .validation import validate_duration, validate_orientation, validate_style
 @dataclass
 class Config:
     default_duration: int = 20
-    default_style: str = "minimal"
+    default_style: str = "premium"
     default_orientation: str = "landscape"
     voice: bool = False
     resolution: str = "1080p"
@@ -26,8 +26,8 @@ class Config:
         cfg = cls()
         if "defaultDuration" in data:
             cfg.default_duration = validate_duration(data["defaultDuration"])
-        if "defaultStyle" in data:
-            cfg.default_style = validate_style(data["defaultStyle"])
+        if "defaultStyle" in data or "default_style" in data:
+            cfg.default_style = validate_style(data.get("defaultStyle", data.get("default_style")))
         if "defaultOrientation" in data:
             cfg.default_orientation = validate_orientation(data["defaultOrientation"])
         if "voice" in data:

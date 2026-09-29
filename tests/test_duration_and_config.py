@@ -42,6 +42,6 @@ def test_config_precedence():
 def test_config_defaults():
     cfg = Config()
     assert cfg.default_duration == 20
-    assert cfg.default_style == "minimal"
+    assert cfg.default_style == "premium"
     assert cfg.default_orientation == "landscape"
     assert cfg.voice is False

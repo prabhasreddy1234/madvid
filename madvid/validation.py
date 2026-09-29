@@ -4,7 +4,7 @@ from __future__ import annotations
 
 ALLOWED_DURATIONS = range(15, 31)
 VALID_ORIENTATIONS = {"landscape", "vertical"}
-VALID_STYLES = {"minimal", "cinematic"}
+VALID_STYLES = {"minimal", "cinematic", "premium"}
 
 
 def validate_duration(duration: int) -> int:
@@ -30,5 +30,5 @@ def validate_style(style: str) -> str:
     """Return a valid style or raise ValueError."""
     value = (style or "").strip().lower()
     if value not in VALID_STYLES:
-        raise ValueError("Style must be 'minimal' or 'cinematic'.")
+        raise ValueError("Style must be 'minimal', 'cinematic', or 'premium'.")
     return value

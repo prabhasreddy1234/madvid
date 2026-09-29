@@ -25,7 +25,7 @@ Then invoke the command from a project folder:
 
 ```bash
 madvid --help
-madvid --preview --duration 20 --style minimal
+madvid --preview --duration 20 --style premium
 ```
 
 ### Register in an AI terminal

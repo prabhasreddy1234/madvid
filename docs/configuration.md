@@ -9,7 +9,7 @@ Example global configuration:
 ```json
 {
   "defaultDuration": 20,
-  "defaultStyle": "minimal",
+  "defaultStyle": "premium",
   "defaultOrientation": "landscape",
   "voice": false
 }
