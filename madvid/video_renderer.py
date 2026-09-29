@@ -44,6 +44,21 @@ def _rgb(color: str) -> tuple[int, int, int]:
     return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
 
 
+def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> list[str]:
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if current and draw.textbbox((0, 0), candidate, font=font)[2] > max_width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
+
+
 def _compose_shot(
     width: int,
     height: int,
@@ -59,70 +74,126 @@ def _compose_shot(
     background = _rgb(style.background)
     accent = _rgb(style.accent)
     foreground = _rgb(style.secondary)
+    eased = progress * progress * (3 - 2 * progress)
     frame = Image.new("RGB", (width, height), background)
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse(
+        (int(width * 0.48), -int(height * 0.9), int(width * 1.45), int(height * 0.7)),
+        fill=(*accent, 24),
+    )
+    frame = Image.alpha_composite(frame.convert("RGBA"), glow).convert("RGB")
+    draw = ImageDraw.Draw(frame)
+    horizontal = width >= height
+    pad_x = int(width * (0.055 if horizontal else 0.07))
+    pad_y = int(height * (0.055 if horizontal else 0.04))
+    small_font = _font(max(12, int(height * 0.022)), True)
+    draw.text((pad_x, pad_y), product_name.upper()[:36], fill=foreground, font=small_font)
+    draw.text(
+        (width - pad_x, pad_y),
+        f"{scene_index + 1:02d}  /  {scene_count:02d}",
+        fill=(175, 181, 190),
+        font=_font(max(11, int(height * 0.019))),
+        anchor="ra",
+    )
 
+    if horizontal:
+        panel = (int(width * 0.055), int(height * 0.19), int(width * 0.59), int(height * 0.84))
+        text_x = int(width * 0.68)
+        text_width = int(width * 0.26)
+        text_top = int(height * 0.29)
+    else:
+        panel = (int(width * 0.055), int(height * 0.13), int(width * 0.945), int(height * 0.61))
+        text_x = pad_x
+        text_width = width - pad_x * 2
+        text_top = int(height * 0.68)
+
+    left, top, right, bottom = panel
+    panel_width = right - left
+    panel_height = bottom - top
+    radius = max(8, int(min(width, height) * 0.018))
+    shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle(
+        (left, top + max(4, int(height * 0.012)), right, bottom + max(4, int(height * 0.012))),
+        radius=radius,
+        fill=(0, 0, 0, 120),
+    )
+    frame = Image.alpha_composite(frame.convert("RGBA"), shadow)
+
+    chrome_height = max(22, int(panel_height * 0.085))
+    panel_layer = Image.new("RGBA", (panel_width, panel_height), (0, 0, 0, 0))
+    panel_draw = ImageDraw.Draw(panel_layer)
+    panel_draw.rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=(244, 246, 248, 255))
+    panel_draw.rectangle((0, chrome_height // 2, panel_width - 1, chrome_height), fill=(244, 246, 248, 255))
+    panel_draw.rectangle((1, chrome_height + 1, panel_width - 2, panel_height - 2), fill=(25, 29, 36, 255))
+    dot_radius = max(2, chrome_height // 9)
+    for dot_index, dot_color in enumerate(((245, 96, 86, 255), (246, 187, 66, 255), (57, 190, 112, 255))):
+        dot_x = int(chrome_height * 0.55) + dot_index * dot_radius * 3
+        panel_draw.ellipse((dot_x - dot_radius, chrome_height // 2 - dot_radius, dot_x + dot_radius, chrome_height // 2 + dot_radius), fill=dot_color)
     if image is not None:
-        margin_x = int(width * 0.035)
-        margin_top = int(height * 0.035)
-        caption_height = int(height * 0.24)
-        viewport = (width - margin_x * 2, height - margin_top - caption_height)
+        viewport = (panel_width - 2, panel_height - chrome_height - 2)
         fitted = ImageOps.contain(image, viewport, method=Image.Resampling.LANCZOS)
-        eased = progress * progress * (3 - 2 * progress)
-        zoom = 1.0 + 0.035 * eased
+        zoom = 1.0 + 0.045 * eased
         zoomed = fitted.resize(
             (max(1, int(fitted.width * zoom)), max(1, int(fitted.height * zoom))),
             Image.Resampling.LANCZOS,
         )
-        x = (width - zoomed.width) // 2 - int((eased - 0.5) * width * 0.006)
-        y = margin_top + (viewport[1] - zoomed.height) // 2 - int((eased - 0.5) * height * 0.006)
-        frame.paste(zoomed, (x, y))
-
-    shade = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    shade_draw = ImageDraw.Draw(shade)
-    caption_top = int(height * 0.76)
-    for y in range(caption_top, height):
-        alpha = int(205 * ((y - caption_top) / max(height - caption_top, 1)) ** 0.6)
-        shade_draw.line((0, y, width, y), fill=(0, 0, 0, alpha))
-    frame = Image.alpha_composite(frame.convert("RGBA"), shade).convert("RGB")
+        image_x = max(0, (panel_width - zoomed.width) // 2 - int((eased - 0.5) * panel_width * 0.012))
+        image_y = chrome_height + max(0, (viewport[1] - zoomed.height) // 2 - int((eased - 0.5) * panel_height * 0.012))
+        panel_layer.alpha_composite(zoomed.convert("RGBA"), (image_x, image_y))
+    else:
+        preview_font = _font(max(12, int(height * 0.02)), True)
+        panel_draw.text(
+            (panel_width // 2, chrome_height + (panel_height - chrome_height) // 2),
+            "PRODUCT PREVIEW",
+            fill=(142, 149, 160, 255),
+            font=preview_font,
+            anchor="mm",
+        )
+    panel_mask = Image.new("L", (panel_width, panel_height), 0)
+    ImageDraw.Draw(panel_mask).rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=255)
+    panel_layer.putalpha(panel_mask)
+    frame.alpha_composite(panel_layer, (left, top))
     draw = ImageDraw.Draw(frame)
-
-    pad_x = int(width * 0.065)
-    pad_y = int(height * 0.055)
-    draw.text((pad_x, pad_y), product_name.upper()[:36], fill=foreground, font=_font(max(14, int(height * 0.025)), True))
-    draw.text(
-        (width - pad_x, pad_y),
-        f"{scene_index + 1:02d}  /  {scene_count:02d}",
-        fill=(210, 210, 210),
-        font=_font(max(12, int(height * 0.021))),
-        anchor="ra",
-    )
-    draw.line((pad_x, pad_y + int(height * 0.045), width - pad_x, pad_y + int(height * 0.045)), fill=(255, 255, 255, 90), width=max(1, width // 1200))
-
     scene_label = getattr(scene, "scene", "Product overview")
+
     headline = getattr(scene, "text_overlay", "") or product_name
     description = getattr(scene, "voice_over", "")
-    caption_y = caption_top + int(height * 0.055)
-    label_font = _font(max(13, int(height * 0.022)), True)
-    title_text = headline[:56]
-    title_size = max(24, int(height * 0.058))
+    label_font = _font(max(12, int(height * (0.021 if horizontal else 0.019))), True)
+    title_size = max(22, int(height * (0.062 if horizontal else 0.052)))
     title_font = _font(title_size, True)
-    while title_size > 24 and draw.textbbox((0, 0), title_text, font=title_font)[2] > width * 0.86:
+    while title_size > 22 and draw.textbbox((0, 0), "Ag", font=title_font)[3] > height * (0.095 if horizontal else 0.065):
         title_size -= 2
         title_font = _font(title_size, True)
-    description_text = description[:90]
-    description_size = max(14, int(height * 0.023))
+    description_size = max(13, int(height * (0.024 if horizontal else 0.021)))
     description_font = _font(description_size)
-    while description_size > 14 and draw.textbbox((0, 0), description_text, font=description_font)[2] > width * 0.86:
-        description_size -= 2
-        description_font = _font(description_size)
-    draw.text((pad_x, caption_y), scene_label.upper(), fill=accent, font=label_font)
-    title_y = caption_y + int(height * 0.04)
-    draw.text((pad_x, title_y), title_text, fill=foreground, font=title_font)
+    text_alpha = int(255 * min(1.0, max(0.0, (progress - 0.08) / 0.45)))
+    text_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    text_draw = ImageDraw.Draw(text_layer)
+    lift = int(height * 0.018 * (1.0 - eased))
+    text_draw.text((text_x, text_top + lift), scene_label.upper()[:32], fill=(*accent, text_alpha), font=label_font)
+    title_y = text_top + int(height * (0.052 if horizontal else 0.043)) + lift
+    title_lines = _wrap_text(text_draw, headline[:90], title_font, text_width)
+    title_line_height = int(title_size * 1.12)
+    for line_index, line in enumerate(title_lines[:3]):
+        text_draw.text((text_x, title_y + line_index * title_line_height), line, fill=(*foreground, text_alpha), font=title_font)
     if description:
-        description_y = title_y + int(height * 0.075)
-        draw.text((pad_x, description_y), description_text, fill=(220, 224, 230), font=description_font)
-
-    return frame
+        description_y = title_y + min(len(title_lines), 3) * title_line_height + int(height * 0.018)
+        description_lines = _wrap_text(text_draw, description[:180], description_font, text_width)
+        for line_index, line in enumerate(description_lines[:3]):
+            text_draw.text(
+                (text_x, description_y + line_index * int(description_size * 1.45)),
+                line,
+                fill=(206, 211, 219, int(text_alpha * 0.88)),
+                font=description_font,
+            )
+    frame = Image.alpha_composite(frame, text_layer)
+    draw = ImageDraw.Draw(frame)
+    progress_y = height - max(8, int(height * 0.025))
+    draw.rounded_rectangle((pad_x, progress_y, width - pad_x, progress_y + max(2, height // 240)), radius=2, fill=(255, 255, 255, 55))
+    progress_width = int((width - pad_x * 2) * ((scene_index + eased) / max(scene_count, 1)))
+    draw.rounded_rectangle((pad_x, progress_y, pad_x + progress_width, progress_y + max(2, height // 240)), radius=2, fill=accent)
+    return frame.convert("RGB")
 
 
 def _make_frame(

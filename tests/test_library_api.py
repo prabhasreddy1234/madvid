@@ -47,6 +47,23 @@ def test_real_screenshots_cross_dissolve_between_scenes():
     assert green < 60
 
 
+@pytest.mark.parametrize(
+    ("width", "height", "chrome_point", "image_point"),
+    [
+        (480, 270, (50, 56), (100, 150)),
+        (270, 480, (40, 68), (135, 180)),
+    ],
+)
+def test_product_shot_uses_framed_capture_in_both_orientations(width, height, chrome_point, image_point):
+    screenshot = Image.new("RGB", (640, 360), (35, 150, 100))
+
+    frame = _make_frame(width, height, "Demo", "cinematic", 12, 24, [screenshot])
+
+    chrome_pixel = frame.getpixel(chrome_point)
+    assert min(chrome_pixel) > 200
+    assert frame.getpixel(image_point) == (35, 150, 100)
+
+
 def test_generate_video_function_uses_project_root_and_provider(tmp_path):
     project_dir = tmp_path / "instant-app"
     project_dir.mkdir()
