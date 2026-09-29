@@ -36,7 +36,28 @@ MADVID takes a product source, understands the core workflow and value propositi
 
 ## Installation
 
-Clone the repository and install it in editable mode:
+### Install as a tool without cloning the full repo
+
+If the project is published to a Git repository, users can install it directly as a command-line tool:
+
+```bash
+uv tool install "git+https://github.com/your-org/madvid.git"
+```
+
+For a local checkout, this also works without cloning into a workspace project:
+
+```bash
+cd /path/to/madvid
+uv tool install --editable .
+```
+
+Then verify the command is available:
+
+```bash
+madvid --help
+```
+
+### Standard local install
 
 ```bash
 git clone <your-repo-url>
@@ -45,12 +66,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
-```
-
-Verify installation:
-
-```bash
-madvid --help
 ```
 
 ## Quick start

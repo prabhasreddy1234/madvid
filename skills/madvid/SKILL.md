@@ -6,10 +6,33 @@ MADVID is a reusable AI-terminal skill that analyzes a local product, website, o
 
 ## installation
 
-1. Clone this repository.
-2. Copy the `skills/madvid` directory to the target AI-terminal skill directory.
-3. Reload the terminal or skill registry.
-4. Invoke `/madvid`.
+### Install as a skill/tool without cloning the full repo
+
+For environments that support tool installation, install MADVID directly:
+
+```bash
+uv tool install "git+https://github.com/your-org/madvid.git"
+```
+
+or, from a local checkout:
+
+```bash
+cd /path/to/madvid
+uv tool install --editable .
+```
+
+Then invoke the command from a project folder:
+
+```bash
+madvid --help
+madvid --preview --duration 20 --style minimal
+```
+
+### Register in an AI terminal
+
+1. Copy the `skills/madvid` directory to the target AI-terminal skill directory.
+2. Reload the terminal or skill registry.
+3. Invoke `/madvid`.
 
 ## Invocation
 
