@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="280" viewBox="0 0 1120 280" role="img" aria-labelledby="title description">
+  <title id="title">MADVID</title>
+  <desc id="description">MADVID, AI product introduction videos. A product interface framed for capture transforms into a play symbol.</desc>
+  <defs>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" fill="none" stroke="#d9f278" stroke-opacity=".045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1120" height="280" rx="18" fill="#111916"/>
+  <rect width="1120" height="280" rx="18" fill="url(#grid)"/>
+
+  <g transform="translate(42 30)">
+    <path d="M12 48V12h36M148 12h36v36M184 172v36h-36M48 208H12v-36" fill="none" stroke="#d9f278" stroke-linecap="square" stroke-width="7"/>
+    <rect x="43" y="35" width="110" height="150" rx="10" fill="#1c2823" stroke="#edf1df" stroke-opacity=".82" stroke-width="2"/>
+    <path d="M43 60h110" stroke="#edf1df" stroke-opacity=".25" stroke-width="2"/>
+    <circle cx="57" cy="48" r="3" fill="#f28168"/>
+    <circle cx="68" cy="48" r="3" fill="#d9f278"/>
+    <path d="M56 76h33M56 86h19M56 151h28" stroke="#edf1df" stroke-linecap="round" stroke-opacity=".55" stroke-width="4"/>
+    <rect x="56" y="99" width="38" height="37" rx="5" fill="#d9f278"/>
+    <path d="M111 99v36M105 107h12M105 118h12M105 129h8" stroke="#edf1df" stroke-linecap="round" stroke-opacity=".5" stroke-width="3"/>
+    <path d="m92 101 34 23-34 22z" fill="#f28168" stroke="#111916" stroke-linejoin="round" stroke-width="5"/>
+    <path d="M91 211h41" stroke="#d9f278" stroke-linecap="round" stroke-width="5"/>
+    <circle cx="140" cy="211" r="5" fill="#f28168"/>
+  </g>
+
+  <path d="M270 54v172" stroke="#d9f278" stroke-opacity=".3" stroke-width="1"/>
+  <text x="310" y="91" fill="#d9f278" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="4">PRODUCT STORY / IN MOTION</text>
+  <text x="304" y="166" fill="#f4f3e9" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="800" letter-spacing="2">MADVID</text>
+  <path d="M310 190h46" stroke="#f28168" stroke-linecap="round" stroke-width="4"/>
+  <text x="310" y="222" fill="#c8d0c4" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" letter-spacing="1.4">AI PRODUCT INTRODUCTION VIDEO GENERATOR</text>
+</svg>

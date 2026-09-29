@@ -1,7 +1,7 @@
 # MADVID
 
 <div align="center">
-  <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=80" alt="MADVID product demo preview" width="1200" />
+  <img src="assets/madvid-logo.svg" alt="MADVID, AI product introduction video generator" width="1120" />
 </div>
 
 <p align="center">
