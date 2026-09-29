@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from .validation import validate_duration, validate_orientation, validate_style
 
@@ -18,10 +19,10 @@ class Config:
     resolution: str = "1080p"
     preview: bool = False
     project_root: str = "."
-    source_url: str | None = None
+    source_url: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, values: dict | None) -> "Config":
+    def from_dict(cls, values: Optional[dict]) -> "Config":
         data = values or {}
         cfg = cls()
         if "defaultDuration" in data:
@@ -51,9 +52,9 @@ def _read_json_file(path: Path) -> dict:
 
 
 def load_config(
-    project_cfg: dict | None = None,
-    cli_overrides: dict | None = None,
-    global_cfg: dict | None = None,
+    project_cfg: Optional[dict] = None,
+    cli_overrides: Optional[dict] = None,
+    global_cfg: Optional[dict] = None,
 ) -> Config:
     """Merge configuration with precedence CLI > project > global > defaults."""
     global_cfg = global_cfg or {}

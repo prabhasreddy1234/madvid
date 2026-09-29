@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 import imageio.v3 as iio
 from PIL import Image, ImageDraw, ImageFont
@@ -65,7 +66,7 @@ def render_video(
     style: str = "minimal",
     orientation: str = "landscape",
     preview: bool = False,
-    storyboard: list | None = None,
+    storyboard: Optional[list] = None,
 ) -> tuple[str, str]:
     output_path = ensure_output_dir(output_dir)
     width, height = _resolve_resolution(orientation, preview=preview)

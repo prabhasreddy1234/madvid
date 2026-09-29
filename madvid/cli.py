@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from typing import Optional
 
 from .asset_manager import ensure_output_dir
 from .config import Config, load_config, load_project_config
@@ -65,7 +66,7 @@ def _safe_product_context(project_root: str, source_type: SourceType) -> dict:
     }
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     project_root = os.getcwd()

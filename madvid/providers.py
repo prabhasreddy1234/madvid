@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class LLMProvider(ABC):
     name = "base"
 
     @abstractmethod
-    def analyze(self, prompt: str, context: dict | None = None) -> str:
+    def analyze(self, prompt: str, context: Optional[dict] = None) -> str:
         raise NotImplementedError
 
 
@@ -46,7 +47,7 @@ class RendererProvider(ABC):
 class LocalProvider(LLMProvider, VisionProvider, VoiceProvider, BrowserProvider, MobileAutomationProvider, RendererProvider):
     name = "local"
 
-    def analyze(self, prompt: str, context: dict | None = None) -> str:
+    def analyze(self, prompt: str, context: Optional[dict] = None) -> str:
         return "Local provider stub; no external AI call configured."
 
     def inspect(self, image_path: str, prompt: str) -> str:

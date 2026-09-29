@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -42,5 +42,5 @@ class ProductContext:
     important_screens: List[str] = field(default_factory=list)
     cta: str = "Get started"
     source_type: str = "PROJECT"
-    source_url: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    source_url: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)

@@ -7,7 +7,7 @@ name = "madvid"
 version = "0.1.0"
 description = "MADVID: AI Product Introduction Video Generator"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 authors = [{ name = "MADVID Contributors" }]
 license = { text = "MIT" }
 keywords = ["video", "ai", "product-demo", "cli", "skill"]

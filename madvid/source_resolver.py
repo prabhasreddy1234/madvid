@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from enum import Enum
+from typing import Optional
 from urllib.parse import urlparse
 
 
@@ -14,7 +15,7 @@ class SourceType(str, Enum):
     APP_STORE = "APP_STORE"
 
 
-def resolve_source(url: str | None = None, project_root: str = ".") -> SourceType:
+def resolve_source(url: Optional[str] = None, project_root: str = ".") -> SourceType:
     """Resolve the source type based on explicit URL or current project context."""
     if url is not None and str(url).strip():
         candidate = str(url).strip()

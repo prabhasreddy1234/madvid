@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 
 def ensure_output_dir(output_dir: str = "madvid-output") -> Path:
@@ -19,7 +20,7 @@ def write_json(path: Path, data: dict) -> None:
         json.dump(data, handle, indent=2, ensure_ascii=False)
 
 
-def discover_assets(project_root: str | None = None) -> list[str]:
+def discover_assets(project_root: Optional[str] = None) -> list[str]:
     root = Path(project_root) if project_root else Path('.')
     assets: list[str] = []
     for folder in ("assets", "public", "src", "app", "android", "ios"):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 from .models import ProductContext, StoryboardScene
 
@@ -30,7 +31,7 @@ def _scene_segment(duration: int, index: int, scenes_total: int) -> tuple[int, i
 def generate_storyboard(
     product_name: str,
     product_category: str = "Product",
-    features: list[str] | None = None,
+    features: Optional[list[str]] = None,
     duration: int = 20,
 ) -> list[StoryboardScene]:
     features = features or ["Core workflow", "Useful insights", "Clear outcome"]
