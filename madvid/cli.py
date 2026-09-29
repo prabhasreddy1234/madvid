@@ -12,9 +12,11 @@ from .config import load_config, load_project_config
 from .project_analyzer import analyze_project
 from .security import filter_sensitive_data
 from .source_resolver import SourceType, resolve_source
+from .store_analyzer import analyze_store_url
 from .storyboard_generator import generate_storyboard_from_product
 from .validation import validate_duration, validate_orientation, validate_style
 from .video_renderer import render_video
+from .website_analyzer import analyze_website
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,7 +90,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.url and not str(args.url).strip():
         raise SystemExit("MADVID could not determine a product source. Run /madvid <url> or execute MADVID inside a project directory.")
 
-    product = analyze_project(project_root) if source == SourceType.PROJECT else None
+    if source == SourceType.WEBSITE and args.url:
+        product = analyze_website(args.url)
+    elif source in {SourceType.PLAY_STORE, SourceType.APP_STORE} and args.url:
+        product = analyze_store_url(args.url)
+    else:
+        product = analyze_project(project_root) if source == SourceType.PROJECT else None
+
     if product is None:
         product = analyze_project(project_root) if os.path.exists(os.path.join(project_root, "package.json")) or os.path.exists(os.path.join(project_root, "build.gradle")) else None
 
