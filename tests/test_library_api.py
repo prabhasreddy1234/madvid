@@ -26,6 +26,8 @@ def test_library_generates_video_from_project(tmp_path):
     assert result["video_path"].endswith(".mp4")
     assert result["metadata"]["visualSource"] == "product_screenshots"
     assert result["metadata"]["visualAssetCount"] == 1
+    assert result["storyboard"][1].text_overlay == "Fast onboarding"
+    assert result["storyboard"][-1].text_overlay == "Explore the product"
 
 
 def test_final_render_requires_real_product_screenshot(tmp_path):

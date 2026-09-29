@@ -32,42 +32,37 @@ def generate_storyboard(
     product_category: str = "Product",
     features: list[str] | None = None,
     duration: int = 20,
+    value_proposition: str = "",
+    primary_workflow: str = "",
+    cta: str = "Explore the product",
 ) -> list[StoryboardScene]:
-    features = features or ["Core workflow", "Useful insights", "Clear outcome"]
+    features = features or ["Explore the core workflow", "Complete key actions", "Reach a clear result"]
+    workflow = primary_workflow.strip() or features[0]
+    promise = value_proposition.strip() or f"A clearer way to use {product_name}."
+    action = cta.strip() or "Explore the product"
     timeline = [
-        ("0-3s", "Product reveal", "Hero product shot", f"{product_name}", f"Introducing {product_name}.", "Fade in", "Product splash"),
-        ("3-8s", "Primary workflow", "Main product screen", features[0], f"{features[0]} in one place.", "Smooth pan", "Main workflow"),
-        ("8-14s", "Feature highlight", "Feature detail screen", features[1], f"{features[1]} that keeps work moving.", "Zoom transition", "Feature asset"),
-        ("14-20s", "Outcome and value", "Result dashboard", features[2], f"{product_name} turns complexity into clarity.", "Soft cut", "Outcome visual"),
+        ("Product reveal", "Hero product screen", product_name, promise, "Product hero"),
+        ("Primary workflow", "Core product screen", workflow, workflow, "Core workflow"),
+        ("Key benefit", "Product feature in use", features[1] if len(features) > 1 else features[0], features[1] if len(features) > 1 else features[0], "Feature detail"),
+        ("Final call to action", "Product and brand close", action, action, "Call to action"),
     ]
-    if duration >= 25:
-        timeline.insert(3, ("12-16s", "Feature highlight 2", "Secondary screen", "Important action", "Fast and easy to act on.", "Arc transition", "Secondary asset"))
-    if duration >= 30:
-        timeline.append(("25-30s", "Final CTA", "Brand and action", "Ready to go", "Launch faster with a clearer workflow.", "Brand reveal", "CTA"))
+    if duration >= 25 and len(features) > 2:
+        timeline.insert(-1, ("More to explore", "Another product moment", features[2], features[2], "More features"))
+
     scenes: list[StoryboardScene] = []
-    for timestamp, scene, visual, text_overlay, voice_over, transition, source_asset in timeline:
-        if timestamp.endswith("s"):
-            scenes.append(
-                StoryboardScene(
-                    timestamp=timestamp,
-                    scene=scene,
-                    visual=f"{visual} for {product_name} ({product_category})",
-                    text_overlay=text_overlay,
-                    voice_over=voice_over,
-                    transition=transition,
-                    source_asset=source_asset,
-                )
-            )
-    if not scenes:
+    scene_count = len(timeline)
+    for index, (scene, visual, text_overlay, voice_over, source_asset) in enumerate(timeline):
+        start = round(duration * index / scene_count)
+        end = round(duration * (index + 1) / scene_count)
         scenes.append(
             StoryboardScene(
-                timestamp="0-20s",
-                scene="Product reveal",
-                visual=f"{product_name} product overview",
-                text_overlay=product_name,
-                voice_over=f"Introducing {product_name}.",
-                transition="Fade in",
-                source_asset="Primary asset",
+                timestamp=f"{start}-{end}s",
+                scene=scene,
+                visual=f"{visual} for {product_name} ({product_category})",
+                text_overlay=text_overlay,
+                voice_over=voice_over,
+                transition="Cross dissolve",
+                source_asset=source_asset,
             )
         )
     return scenes
@@ -79,4 +74,7 @@ def generate_storyboard_from_product(product: ProductContext, duration: int = 20
         product_category=product.product_category,
         features=product.features,
         duration=duration,
+        value_proposition=product.value_proposition,
+        primary_workflow=product.primary_workflow,
+        cta=product.cta,
     )

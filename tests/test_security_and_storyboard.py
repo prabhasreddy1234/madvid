@@ -17,8 +17,13 @@ def test_generate_storyboard_creates_scene_sequence():
         product_category="Productivity",
         features=["Track tasks", "Team updates", "Smart summaries"],
         duration=20,
+        value_proposition="Keep every project moving in one place.",
+        primary_workflow="Plan work with your team.",
+        cta="Start your project",
     )
     assert storyboard[0].scene == "Product reveal"
     assert len(storyboard) >= 3
-    assert storyboard[-1].timestamp.endswith("20s") or storyboard[-1].timestamp.endswith("20s")
+    assert storyboard[-1].timestamp.endswith("20s")
+    assert storyboard[0].voice_over == "Keep every project moving in one place."
+    assert storyboard[-1].text_overlay == "Start your project"
     assert "Example App" in storyboard[0].visual

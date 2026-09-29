@@ -51,18 +51,25 @@ def analyze_project(project_root: str = ".") -> ProductContext:
     root = Path(project_root)
     project_type = detect_project_type(str(root))
     product_name = infer_product_name(str(root))
-    features = [
-        "Primary workflow",
-        "Key user actions",
-        "Shared product insights",
-    ]
     readme_path = root / "README.md"
     readme_text = readme_path.read_text(encoding="utf-8", errors="ignore") if readme_path.exists() else ""
+    features: list[str] = []
+    value_proposition = ""
+    after_title = False
     for line in readme_text.splitlines():
-        if line.startswith("- ") and len(line) > 3:
-            features.append(line[2:].strip())
-            if len(features) >= 5:
-                break
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            after_title = True
+            continue
+        if stripped.startswith(("- ", "* ", "+ ")) and len(stripped) > 3:
+            feature = stripped[2:].strip()
+            if feature and feature not in features:
+                features.append(feature)
+        elif after_title and stripped and not stripped.startswith("#") and not value_proposition:
+            value_proposition = stripped[:240]
+        if len(features) >= 5:
+            break
+    features = features[:5] or ["Explore the core workflow", "Complete key actions", "Reach a clear result"]
     important_screens = [
         "Landing experience",
         "Core workflow",
@@ -77,9 +84,9 @@ def analyze_project(project_root: str = ".") -> ProductContext:
         product_name=product_name,
         product_category=project_type.title() + " app",
         target_user="Product users",
-        value_proposition="Simplify workflows and help users get results faster.",
-        primary_workflow="Core user journey",
-        features=features[:5],
+        value_proposition=value_proposition or "Simplify workflows and help users get results faster.",
+        primary_workflow=features[0],
+        features=features,
         visual_identity="Clean, modern product experience",
         important_screens=important_screens,
         cta="Explore the product",
