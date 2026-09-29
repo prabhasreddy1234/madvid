@@ -9,7 +9,7 @@ class LLMProvider(ABC):
     name = "base"
 
     @abstractmethod
-    def analyze(self, prompt: str, context: Optional[dict] = None) -> str:
+    def analyze(self, prompt: str, context: dict | None = None) -> str:
         raise NotImplementedError
 
 
@@ -46,7 +46,7 @@ class RendererProvider(ABC):
 class LocalProvider(LLMProvider, VisionProvider, VoiceProvider, BrowserProvider, MobileAutomationProvider, RendererProvider):
     name = "local"
 
-    def analyze(self, prompt: str, context: Optional[dict] = None) -> str:
+    def analyze(self, prompt: str, context: dict | None = None) -> str:
         return "Local provider stub; no external AI call configured."
 
     def inspect(self, image_path: str, prompt: str) -> str:

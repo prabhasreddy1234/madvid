@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import imageio.v3 as iio
+import imageio.v2 as iio
+import numpy as np
 from PIL import Image, ImageDraw
 
 from .asset_manager import ensure_output_dir, write_json
@@ -72,7 +73,7 @@ def render_video(
     writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8)
     for index in range(total_frames):
         frame = _make_frame(width, height, product_name, style, index, total_frames)
-        writer.append_data(frame)
+        writer.append_data(np.asarray(frame))
     writer.close()
     metadata = {
         "productName": product_name,
