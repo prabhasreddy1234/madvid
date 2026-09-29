@@ -27,3 +27,27 @@ def test_generate_storyboard_creates_scene_sequence():
     assert storyboard[0].voice_over == "Keep every project moving in one place."
     assert storyboard[-1].text_overlay == "Start your project"
     assert "Example App" in storyboard[0].visual
+
+
+def test_storyboard_visuals_match_website_and_mobile_app_sources():
+    website = generate_storyboard(
+        product_name="Acme Flow",
+        product_category="Website product",
+        source_type="WEBSITE",
+        important_screens=["Landing page", "Workspace", "Results"],
+        visual_identity="Clean product interface",
+        target_user="Operations teams",
+    )
+    mobile_app = generate_storyboard(
+        product_name="Acme Pocket",
+        product_category="iOS app",
+        source_type="APP_STORE",
+        important_screens=["Welcome screen", "Daily plan", "Completed task"],
+    )
+
+    assert "Website screen: Landing page" in website[0].visual
+    assert "Clean product interface" in website[0].visual
+    assert "for Operations teams" in website[0].visual
+    assert "Mobile app screen: Welcome screen" in mobile_app[0].visual
+    assert "Daily plan" in mobile_app[1].visual
+    assert all(scene.transition != "Light flash" for scene in website)

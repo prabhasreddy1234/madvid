@@ -13,3 +13,5 @@ __pycache__/
 .DS_Store
 madvid-output/
 *.egg-info/
+/tests/fixtures/screenshots/
+/tests/fixtures/videos/aventoapp-preview/

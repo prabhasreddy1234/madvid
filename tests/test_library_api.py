@@ -2,6 +2,7 @@ import pytest
 from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
+from madvid.storyboard_generator import generate_storyboard
 from madvid.video_renderer import _apply_transition, _make_frame, render_video
 
 
@@ -62,6 +63,33 @@ def test_product_shot_uses_framed_capture_in_both_orientations(width, height, ch
     chrome_pixel = frame.getpixel(chrome_point)
     assert min(chrome_pixel) > 200
     assert frame.getpixel(image_point) == (35, 150, 100)
+
+
+def test_portrait_product_capture_uses_phone_frame():
+    screenshot = Image.new("RGB", (360, 640), (35, 150, 100))
+
+    frame = _make_frame(480, 270, "Demo", "cinematic", 12, 24, [screenshot])
+
+    assert min(frame.getpixel((50, 56))) < 100
+    assert sum(pixel == (35, 150, 100) for pixel in frame.getdata()) > 1000
+
+
+def test_many_product_screenshots_map_to_available_storyboard_scenes():
+    screenshots = [
+        Image.new("RGB", (640, 360), (35 + index * 20, 50, 230 - index * 20))
+        for index in range(6)
+    ]
+    storyboard = generate_storyboard(
+        product_name="Demo Website",
+        product_category="Website product",
+        duration=12,
+        source_type="WEBSITE",
+        important_screens=["Landing page", "Features", "Benefits", "Get started"],
+    )
+    frame = _make_frame(480, 270, "Demo Website", "cinematic", 240, 288, screenshots, storyboard)
+
+    assert frame.size == (480, 270)
+    assert frame.getbbox() == (0, 0, 480, 270)
 
 
 @pytest.mark.parametrize("transition", ["Directional push", "Soft wipe"])

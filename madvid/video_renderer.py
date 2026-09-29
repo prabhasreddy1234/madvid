@@ -136,17 +136,62 @@ def _compose_shot(
     )
     frame = Image.alpha_composite(frame.convert("RGBA"), shadow)
 
-    chrome_height = max(22, int(panel_height * 0.085))
+    mobile_capture = image is not None and image.height / image.width > 1.15
+    chrome_height = 0 if mobile_capture else max(22, int(panel_height * 0.085))
     panel_layer = Image.new("RGBA", (panel_width, panel_height), (0, 0, 0, 0))
     panel_draw = ImageDraw.Draw(panel_layer)
-    panel_draw.rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=(244, 246, 248, 255))
-    panel_draw.rectangle((0, chrome_height // 2, panel_width - 1, chrome_height), fill=(244, 246, 248, 255))
-    panel_draw.rectangle((1, chrome_height + 1, panel_width - 2, panel_height - 2), fill=(25, 29, 36, 255))
-    dot_radius = max(2, chrome_height // 9)
-    for dot_index, dot_color in enumerate(((245, 96, 86, 255), (246, 187, 66, 255), (57, 190, 112, 255))):
-        dot_x = int(chrome_height * 0.55) + dot_index * dot_radius * 3
-        panel_draw.ellipse((dot_x - dot_radius, chrome_height // 2 - dot_radius, dot_x + dot_radius, chrome_height // 2 + dot_radius), fill=dot_color)
-    if image is not None:
+    panel_fill = (27, 31, 38, 255) if mobile_capture else (244, 246, 248, 255)
+    panel_draw.rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=panel_fill)
+    if mobile_capture:
+        inset = max(3, int(min(panel_width, panel_height) * 0.018))
+        fitted = ImageOps.contain(
+            image,
+            (int(panel_width * 0.52) - inset * 2, int(panel_height * 0.88) - inset * 2),
+            method=Image.Resampling.LANCZOS,
+        )
+        zoom = 1.0 + 0.045 * eased
+        fitted = fitted.resize(
+            (max(1, int(fitted.width * zoom)), max(1, int(fitted.height * zoom))),
+            Image.Resampling.LANCZOS,
+        )
+        bezel_x = max(3, int(fitted.width * 0.04))
+        bezel_y = max(5, int(fitted.height * 0.035))
+        device_width = fitted.width + bezel_x * 2
+        device_height = fitted.height + bezel_y * 2
+        device_x = (panel_width - device_width) // 2
+        device_y = (panel_height - device_height) // 2
+        device_radius = max(8, int(device_width * 0.12))
+        panel_draw.rounded_rectangle(
+            (device_x, device_y, device_x + device_width - 1, device_y + device_height - 1),
+            radius=device_radius,
+            fill=(9, 11, 14, 255),
+        )
+        screen_x = device_x + bezel_x
+        screen_y = device_y + bezel_y
+        screen_mask = Image.new("L", fitted.size, 0)
+        ImageDraw.Draw(screen_mask).rounded_rectangle(
+            (0, 0, fitted.width - 1, fitted.height - 1),
+            radius=max(4, int(device_width * 0.035)),
+            fill=255,
+        )
+        panel_layer.paste(fitted.convert("RGBA"), (screen_x, screen_y), screen_mask)
+        speaker_width = max(8, int(device_width * 0.17))
+        speaker_height = max(2, int(bezel_y * 0.18))
+        speaker_x = panel_width // 2 - speaker_width // 2
+        speaker_y = device_y + max(1, (bezel_y - speaker_height) // 2)
+        panel_draw.rounded_rectangle(
+            (speaker_x, speaker_y, speaker_x + speaker_width, speaker_y + speaker_height),
+            radius=speaker_height,
+            fill=(48, 52, 58, 255),
+        )
+    else:
+        panel_draw.rectangle((0, chrome_height // 2, panel_width - 1, chrome_height), fill=(244, 246, 248, 255))
+        panel_draw.rectangle((1, chrome_height + 1, panel_width - 2, panel_height - 2), fill=(25, 29, 36, 255))
+        dot_radius = max(2, chrome_height // 9)
+        for dot_index, dot_color in enumerate(((245, 96, 86, 255), (246, 187, 66, 255), (57, 190, 112, 255))):
+            dot_x = int(chrome_height * 0.55) + dot_index * dot_radius * 3
+            panel_draw.ellipse((dot_x - dot_radius, chrome_height // 2 - dot_radius, dot_x + dot_radius, chrome_height // 2 + dot_radius), fill=dot_color)
+    if image is not None and not mobile_capture:
         viewport = (panel_width - 2, panel_height - chrome_height - 2)
         fitted = ImageOps.contain(image, viewport, method=Image.Resampling.LANCZOS)
         zoom = 1.0 + 0.045 * eased
@@ -157,7 +202,7 @@ def _compose_shot(
         image_x = max(0, (panel_width - zoomed.width) // 2 - int((eased - 0.5) * panel_width * 0.012))
         image_y = chrome_height + max(0, (viewport[1] - zoomed.height) // 2 - int((eased - 0.5) * panel_height * 0.012))
         panel_layer.alpha_composite(zoomed.convert("RGBA"), (image_x, image_y))
-    else:
+    elif image is None:
         preview_font = _font(max(12, int(height * 0.02)), True)
         panel_draw.text(
             (panel_width // 2, chrome_height + (panel_height - chrome_height) // 2),
@@ -293,7 +338,7 @@ def _make_frame(
             scenes[previous_scene_index] if previous_scene_index is not None else None,
             previous_index, shot_count, 1.0,
         )
-        transition = getattr(scenes[shot_index], "transition", "Cross dissolve") if scenes else "Cross dissolve"
+        transition = getattr(scenes[scene_index], "transition", "Cross dissolve") if scenes else "Cross dissolve"
         transition_progress = min(1.0, local_frame / transition_frames)
         current = _apply_transition(previous, current, transition_progress, transition)
     return current
