@@ -66,7 +66,7 @@ MADVID follows a simple pipeline:
 For a published Git repository:
 
 ```bash
-uv tool install "git+https://github.com/your-org/madvid.git"
+uv tool install "git+https://github.com/prabhasreddy1234/madvid.git"
 ```
 
 For a local checkout:
