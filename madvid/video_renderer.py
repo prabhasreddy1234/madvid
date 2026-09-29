@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import imageio.v2 as iio
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from .asset_manager import ensure_output_dir, write_json
 from .styles import get_style
@@ -21,7 +21,15 @@ def _resolve_resolution(orientation: str, preview: bool = False) -> tuple[int, i
     return width, height
 
 
-def _make_frame(width: int, height: int, product_name: str, style_name: str, frame_index: int, total_frames: int) -> Image.Image:
+def _make_frame(
+    width: int,
+    height: int,
+    product_name: str,
+    style_name: str,
+    frame_index: int,
+    total_frames: int,
+    visual_images: list[Image.Image] | None = None,
+) -> Image.Image:
     style = get_style(style_name)
     img = Image.new("RGB", (width, height), style.background)
     draw = ImageDraw.Draw(img)
@@ -43,12 +51,29 @@ def _make_frame(width: int, height: int, product_name: str, style_name: str, fra
     title = product_name[:24]
     draw.text((card_left + 40, card_top + 120), title, fill=overlay, font=None)
     draw.text((card_left + 40, card_top + 200), "AI product introduction", fill=(180, 180, 180), font=None)
-    # mock UI cards
-    for i in range(4):
-        x = card_left + 50 + (i % 2) * 260
-        y = card_top + 300 + (i // 2) * 140
-        draw.rounded_rectangle((x, y, x + 220, y + 90), radius=18, fill=(35, 56, 88), outline=(80, 80, 80))
-        draw.text((x + 20, y + 25), f"Feature {i + 1}", fill=overlay, font=None)
+    if visual_images:
+        image_index = min(frame_index * len(visual_images) // max(total_frames, 1), len(visual_images) - 1)
+        viewport = (
+            card_left + int(card_w * 0.05),
+            card_top + int(card_h * 0.31),
+            card_left + int(card_w * 0.95),
+            card_top + int(card_h * 0.93),
+        )
+        viewport_size = (viewport[2] - viewport[0], viewport[3] - viewport[1])
+        draw.rounded_rectangle(viewport, radius=18, fill=(24, 30, 43), outline=(80, 80, 80), width=2)
+        screenshot = ImageOps.contain(
+            visual_images[image_index], viewport_size, method=Image.Resampling.LANCZOS
+        )
+        image_x = viewport[0] + (viewport_size[0] - screenshot.width) // 2
+        image_y = viewport[1] + (viewport_size[1] - screenshot.height) // 2
+        img.paste(screenshot, (image_x, image_y))
+    else:
+        # Fall back to a clearly generic mock UI when no product screenshots exist.
+        for i in range(4):
+            x = card_left + 50 + (i % 2) * 260
+            y = card_top + 300 + (i // 2) * 140
+            draw.rounded_rectangle((x, y, x + 220, y + 90), radius=18, fill=(35, 56, 88), outline=(80, 80, 80))
+            draw.text((x + 20, y + 25), f"Feature {i + 1}", fill=overlay, font=None)
     # progress line
     progress = (frame_index / max(total_frames, 1)) * width
     draw.rectangle((0, height - 30, progress, height), fill=accent)
@@ -63,6 +88,7 @@ def render_video(
     orientation: str = "landscape",
     preview: bool = False,
     storyboard: list | None = None,
+    visual_assets: list[str] | None = None,
 ) -> tuple[str, str]:
     output_path = ensure_output_dir(output_dir)
     width, height = _resolve_resolution(orientation, preview=preview)
@@ -70,9 +96,21 @@ def render_video(
     total_frames = fps * duration
     video_name = "preview.mp4" if preview else "product-intro.mp4"
     video_path = output_path / video_name
+    visual_images: list[Image.Image] = []
+    for asset_path in visual_assets or []:
+        try:
+            with Image.open(asset_path) as image:
+                visual_images.append(ImageOps.exif_transpose(image).convert("RGB"))
+        except (OSError, ValueError):
+            continue
+    if not visual_images and not preview:
+        raise ValueError(
+            "A final product video requires real product screenshots. Add captures to "
+            "assets/screenshots/ (or screenshots/, screens/, or public/)."
+        )
     writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8, macro_block_size=1)
     for index in range(total_frames):
-        frame = _make_frame(width, height, product_name, style, index, total_frames)
+        frame = _make_frame(width, height, product_name, style, index, total_frames, visual_images)
         writer.append_data(np.asarray(frame))
     writer.close()
     metadata = {
@@ -82,6 +120,8 @@ def render_video(
         "style": style,
         "resolution": f"{width}x{height}",
         "preview": preview,
+        "visualSource": "product_screenshots" if visual_images else "generated_mockup",
+        "visualAssetCount": len(visual_images),
     }
     if storyboard:
         metadata["storyboardCount"] = len(storyboard)

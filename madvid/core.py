@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .asset_manager import discover_visual_assets
 from .project_analyzer import analyze_project
 from .providers import LLMProvider, LocalProvider
 from .source_resolver import SourceType, resolve_source
@@ -58,6 +59,7 @@ class MADVID:
             orientation=orientation,
             preview=preview,
             storyboard=storyboard,
+            visual_assets=discover_visual_assets(project_root),
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = "PROJECT"
@@ -99,6 +101,7 @@ class MADVID:
             orientation=orientation,
             preview=preview,
             storyboard=storyboard,
+            visual_assets=discover_visual_assets(project_root),
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = source_type.value

@@ -55,6 +55,7 @@ MADVID follows a simple pipeline:
 - Landscape and vertical orientation
 - Optional voice-over support
 - Preview mode for fast iteration
+- Uses real product screenshots found in `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`
 - Python library API for embedding in apps and workflows
 - AI CLI integration layer for Copilot, Claude, Codex, Gemini, and Aider
 - Security-conscious redaction of sensitive values
@@ -121,6 +122,8 @@ Generate vertical output:
 ```bash
 madvid --vertical --duration 18 --style cinematic
 ```
+
+For product-accurate visuals, place full-screen product captures in `assets/screenshots/`. MADVID also searches `screenshots/`, `screens/`, and `public/`, cycles through captures in the rendered video, and records their use in `metadata.json`. A final export requires at least one real screenshot; preview mode can still run without captures and labels its generic mockup in the metadata.
 
 ### Website and app store examples
 

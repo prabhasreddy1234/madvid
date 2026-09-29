@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from .asset_manager import ensure_output_dir
+from .asset_manager import discover_visual_assets, ensure_output_dir
 from .config import load_config, load_project_config
 from .project_analyzer import analyze_project
 from .security import filter_sensitive_data
@@ -153,15 +153,19 @@ def main(argv: list[str] | None = None) -> int:
     ]
 
     output_dir = ensure_output_dir("madvid-output")
-    product_intro_path, metadata_path = render_video(
-        product_name=product.product_name,
-        output_dir=str(output_dir),
-        duration=cfg.default_duration,
-        style=cfg.default_style,
-        orientation=cfg.default_orientation,
-        preview=cfg.preview,
-        storyboard=storyboard,
-    )
+    try:
+        product_intro_path, metadata_path = render_video(
+            product_name=product.product_name,
+            output_dir=str(output_dir),
+            duration=cfg.default_duration,
+            style=cfg.default_style,
+            orientation=cfg.default_orientation,
+            preview=cfg.preview,
+            storyboard=storyboard,
+            visual_assets=discover_visual_assets(project_root),
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     storyboard_path = output_dir / "storyboard.md"
     storyboard_path.write_text(
         "# Storyboard\n\n" + "\n\n".join(
@@ -193,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Duration: {cfg.default_duration}s")
     print(f"Style: {cfg.default_style}")
     print(f"Resolution: {metadata['resolution']}")
+    print(f"Visual source: {metadata['visualSource']}")
     print(f"Output: {product_intro_path}")
     print("Done.")
     return 0
