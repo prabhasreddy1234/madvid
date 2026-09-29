@@ -36,4 +36,6 @@ line-length = 100
 target-version = "py39"
 
 [tool.setuptools]
-packages = ["madvid"]
+
+[tool.setuptools.packages.find]
+include = ["madvid*"]
