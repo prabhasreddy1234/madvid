@@ -21,6 +21,17 @@ from .website_analyzer import analyze_website
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="MADVID: AI Product Introduction Video Generator")
+    subparsers = parser.add_subparsers(dest="command")
+
+    init_parser = subparsers.add_parser("init", help="Initialize a MADVID project for a specific AI integration")
+    init_parser.add_argument("project_name", nargs="?", default=".", help="Name of the project directory to initialize")
+    init_parser.add_argument(
+        "--integration",
+        choices=["generic", "speckit", "copilot", "copilot-cli", "claude", "claude-code", "codex", "codex-cli", "gemini", "gemini-cli", "aider", "aider-cli"],
+        default="generic",
+        help="Target AI integration or CLI environment",
+    )
+
     parser.add_argument("url", nargs="?", help="Optional URL for website or app store page")
     parser.add_argument("--duration", type=int, help="Video duration in seconds (15-30)")
     parser.add_argument("--voice", action="store_true", help="Enable voice-over")
@@ -70,8 +81,32 @@ def _safe_product_context(project_root: str, source_type: SourceType) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if getattr(args, "command", None) == "init":
+        project_name = args.project_name or "."
+        target_dir = Path(project_name)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = target_dir / ".madvid"
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        integration = args.integration or "generic"
+        config_payload = {
+            "integration": integration,
+            "defaultDuration": 20,
+            "defaultStyle": "minimal",
+            "defaultOrientation": "landscape",
+            "voice": False,
+            "preview": False,
+        }
+        config_path = config_dir / "config.json"
+        config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+
+        print(f"Initialized MADVID project at {target_dir} for integration '{integration}'.")
+        print(f"Next: cd {target_dir} && madvid --preview --duration 20 --style minimal")
+        return 0
+
     project_root = os.getcwd()
-    source = resolve_source(args.url, project_root=project_root)
+    source = resolve_source(getattr(args, "url", None), project_root=project_root)
     if source == SourceType.PROJECT:
         project_cfg = load_project_config(project_root)
     else:

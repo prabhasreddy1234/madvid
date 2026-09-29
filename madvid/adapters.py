@@ -65,13 +65,19 @@ class AiderCliAdapter(TerminalAdapter):
 
 
 def get_adapter(name: str) -> TerminalAdapter:
-    adapters = {
+    normalized = (name or "generic").lower().strip()
+    aliases = {
         "generic": TerminalAdapter(),
         "speckit": SpecKitAdapter(),
+        "copilot": CopilotCliAdapter(),
         "copilot-cli": CopilotCliAdapter(),
+        "codex": CodexCliAdapter(),
         "codex-cli": CodexCliAdapter(),
+        "claude": ClaudeCodeAdapter(),
         "claude-code": ClaudeCodeAdapter(),
+        "gemini": GeminiCliAdapter(),
         "gemini-cli": GeminiCliAdapter(),
+        "aider": AiderCliAdapter(),
         "aider-cli": AiderCliAdapter(),
     }
-    return adapters.get((name or "generic").lower(), TerminalAdapter())
+    return aliases.get(normalized, TerminalAdapter())
