@@ -2,7 +2,7 @@ import pytest
 from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
-from madvid.video_renderer import _make_frame, render_video
+from madvid.video_renderer import _apply_transition, _make_frame, render_video
 
 
 def test_library_generates_video_from_project(tmp_path):
@@ -62,6 +62,34 @@ def test_product_shot_uses_framed_capture_in_both_orientations(width, height, ch
     chrome_pixel = frame.getpixel(chrome_point)
     assert min(chrome_pixel) > 200
     assert frame.getpixel(image_point) == (35, 150, 100)
+
+
+@pytest.mark.parametrize("transition", ["Directional push", "Soft wipe"])
+def test_directional_transitions_reveal_the_next_scene(transition):
+    previous = Image.new("RGB", (100, 60), (220, 30, 30))
+    current = Image.new("RGB", (100, 60), (30, 30, 220))
+
+    frame = _apply_transition(previous, current, 0.5, transition)
+
+    assert frame.getpixel((10, 30)) != frame.getpixel((90, 30))
+
+
+def test_light_flash_transition_adds_a_brief_highlight():
+    previous = Image.new("RGB", (100, 60), (20, 20, 20))
+    current = Image.new("RGB", (100, 60), (40, 40, 40))
+
+    frame = _apply_transition(previous, current, 0.5, "Light flash")
+
+    assert min(frame.getpixel((50, 30))) > 150
+
+
+def test_product_shot_has_motion_within_a_scene():
+    screenshot = Image.new("RGB", (640, 360), (35, 150, 100))
+
+    opening = _make_frame(480, 270, "Demo", "cinematic", 0, 24, [screenshot])
+    closing = _make_frame(480, 270, "Demo", "cinematic", 23, 24, [screenshot])
+
+    assert opening.tobytes() != closing.tobytes()
 
 
 def test_generate_video_function_uses_project_root_and_provider(tmp_path):

@@ -78,8 +78,9 @@ def _compose_shot(
     frame = Image.new("RGB", (width, height), background)
     glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow)
+    glow_left = int(width * (0.48 if scene_index % 2 == 0 else -0.45))
     glow_draw.ellipse(
-        (int(width * 0.48), -int(height * 0.9), int(width * 1.45), int(height * 0.7)),
+        (glow_left, -int(height * 0.9), glow_left + int(width * 0.97), int(height * 0.7)),
         fill=(*accent, 24),
     )
     frame = Image.alpha_composite(frame.convert("RGBA"), glow).convert("RGB")
@@ -98,15 +99,30 @@ def _compose_shot(
     )
 
     if horizontal:
-        panel = (int(width * 0.055), int(height * 0.19), int(width * 0.59), int(height * 0.84))
-        text_x = int(width * 0.68)
-        text_width = int(width * 0.26)
-        text_top = int(height * 0.29)
+        if scene_index % 2 == 0:
+            panel = (int(width * 0.055), int(height * 0.19), int(width * 0.59), int(height * 0.84))
+            text_x = int(width * 0.68)
+            text_width = int(width * 0.26)
+            text_top = int(height * 0.29)
+        else:
+            panel = (int(width * 0.405), int(height * 0.19), int(width * 0.945), int(height * 0.84))
+            text_x = int(width * 0.055)
+            text_width = int(width * 0.30)
+            text_top = int(height * 0.29)
+        if scene_index == scene_count - 1 and scene_count > 1:
+            panel = (int(width * 0.48), int(height * 0.22), int(width * 0.945), int(height * 0.78))
+            text_x = int(width * 0.075)
+            text_width = int(width * 0.34)
+            text_top = int(height * 0.32)
     else:
-        panel = (int(width * 0.055), int(height * 0.13), int(width * 0.945), int(height * 0.61))
         text_x = pad_x
         text_width = width - pad_x * 2
-        text_top = int(height * 0.68)
+        if scene_index % 2 == 0:
+            panel = (int(width * 0.055), int(height * 0.13), int(width * 0.945), int(height * 0.61))
+            text_top = int(height * 0.68)
+        else:
+            panel = (int(width * 0.055), int(height * 0.36), int(width * 0.945), int(height * 0.83))
+            text_top = int(height * 0.15)
 
     left, top, right, bottom = panel
     panel_width = right - left
@@ -153,7 +169,27 @@ def _compose_shot(
     panel_mask = Image.new("L", (panel_width, panel_height), 0)
     ImageDraw.Draw(panel_mask).rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=255)
     panel_layer.putalpha(panel_mask)
-    frame.alpha_composite(panel_layer, (left, top))
+    if 0.16 < progress < 0.74:
+        sweep_progress = (progress - 0.16) / 0.58
+        sweep_x = int(sweep_progress * (panel_width + 80)) - 40
+        sheen = Image.new("RGBA", (panel_width, panel_height), (0, 0, 0, 0))
+        sheen_draw = ImageDraw.Draw(sheen)
+        sheen_draw.polygon(
+            (
+                (sweep_x - 24, chrome_height),
+                (sweep_x - 8, chrome_height),
+                (sweep_x + 30, panel_height),
+                (sweep_x + 14, panel_height),
+            ),
+            fill=(255, 255, 255, 20),
+        )
+        panel_layer.alpha_composite(sheen)
+    panel_scale = 0.97 + 0.03 * eased
+    scaled_size = (max(1, int(panel_width * panel_scale)), max(1, int(panel_height * panel_scale)))
+    animated_panel = panel_layer.resize(scaled_size, Image.Resampling.LANCZOS)
+    panel_x = left + (panel_width - scaled_size[0]) // 2 - int(width * 0.008 * (1.0 - eased))
+    panel_y = top + (panel_height - scaled_size[1]) // 2 + int(height * 0.008 * (1.0 - eased))
+    frame.alpha_composite(animated_panel, (panel_x, panel_y))
     draw = ImageDraw.Draw(frame)
     scene_label = getattr(scene, "scene", "Product overview")
 
@@ -167,7 +203,7 @@ def _compose_shot(
         title_font = _font(title_size, True)
     description_size = max(13, int(height * (0.024 if horizontal else 0.021)))
     description_font = _font(description_size)
-    text_alpha = int(255 * min(1.0, max(0.0, (progress - 0.08) / 0.45)))
+    text_alpha = int(255 * min(1.0, max(0.0, (progress - 0.04) / 0.2)))
     text_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     text_draw = ImageDraw.Draw(text_layer)
     lift = int(height * 0.018 * (1.0 - eased))
@@ -194,6 +230,30 @@ def _compose_shot(
     progress_width = int((width - pad_x * 2) * ((scene_index + eased) / max(scene_count, 1)))
     draw.rounded_rectangle((pad_x, progress_y, pad_x + progress_width, progress_y + max(2, height // 240)), radius=2, fill=accent)
     return frame.convert("RGB")
+
+
+def _apply_transition(previous: Image.Image, current: Image.Image, progress: float, transition: str) -> Image.Image:
+    eased = progress * progress * (3 - 2 * progress)
+    transition_name = transition.lower()
+    width, height = current.size
+    if "push" in transition_name:
+        offset = int(width * eased)
+        frame = Image.new("RGB", current.size)
+        frame.paste(previous, (-offset, 0))
+        frame.paste(current, (width - offset, 0))
+        return frame
+    if "wipe" in transition_name:
+        frame = previous.copy()
+        wipe_width = int(width * eased)
+        frame.paste(current.crop((0, 0, wipe_width, height)), (0, 0))
+        return frame
+
+    frame = Image.blend(previous, current, eased)
+    if "flash" in transition_name:
+        flash_alpha = int(150 * max(0.0, 1.0 - abs(progress - 0.5) * 2))
+        flash = Image.new("RGB", current.size, (255, 255, 255))
+        frame = Image.blend(frame, flash, flash_alpha / 255)
+    return frame
 
 
 def _make_frame(
@@ -233,8 +293,9 @@ def _make_frame(
             scenes[previous_scene_index] if previous_scene_index is not None else None,
             previous_index, shot_count, 1.0,
         )
-        blend = min(1.0, local_frame / transition_frames)
-        current = Image.blend(previous, current, blend)
+        transition = getattr(scenes[shot_index], "transition", "Cross dissolve") if scenes else "Cross dissolve"
+        transition_progress = min(1.0, local_frame / transition_frames)
+        current = _apply_transition(previous, current, transition_progress, transition)
     return current
 
 

@@ -51,6 +51,7 @@ def generate_storyboard(
 
     scenes: list[StoryboardScene] = []
     scene_count = len(timeline)
+    transitions = ("Cross dissolve", "Directional push", "Soft wipe", "Light flash", "Cross dissolve")
     for index, (scene, visual, text_overlay, voice_over, source_asset) in enumerate(timeline):
         start = round(duration * index / scene_count)
         end = round(duration * (index + 1) / scene_count)
@@ -61,7 +62,7 @@ def generate_storyboard(
                 visual=f"{visual} for {product_name} ({product_category})",
                 text_overlay=text_overlay,
                 voice_over=voice_over,
-                transition="Cross dissolve",
+                transition=transitions[index % len(transitions)],
                 source_asset=source_asset,
             )
         )
