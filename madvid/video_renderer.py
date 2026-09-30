@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import math
 import subprocess
 import tempfile
 import wave
@@ -506,6 +507,110 @@ def _apply_transition(previous: Image.Image, current: Image.Image, progress: flo
     return frame
 
 
+def _open_video_sources(video_assets: list[str]) -> list[tuple[object, int]]:
+    sources = []
+    try:
+        for path in video_assets:
+            if not os.path.isfile(path):
+                raise ValueError(f"Product video asset does not exist: {path}")
+            reader = iio.get_reader(path)
+            metadata = reader.get_meta_data()
+            fps = float(metadata.get("fps") or 24)
+            duration = float(metadata.get("duration") or 0)
+            frame_count = int(round(fps * duration)) if math.isfinite(duration) else 0
+            if fps <= 0 or frame_count < 1:
+                reader.close()
+                raise ValueError(f"Product video asset has no readable frames: {path}")
+            sources.append((reader, frame_count))
+    except Exception:
+        for reader, _ in sources:
+            reader.close()
+        raise
+    return sources
+
+
+def _video_frame_at(source: tuple[object, int], progress: float) -> Image.Image:
+    reader, frame_count = source
+    frame_index = min(frame_count - 1, max(0, round((frame_count - 1) * progress)))
+    return Image.fromarray(reader.get_data(frame_index)).convert("RGB")
+
+
+def _video_images_for_frame(
+    sources: list[tuple[object, int]],
+    storyboard: list,
+    frame_index: int,
+    total_frames: int,
+) -> list[Image.Image | None]:
+    scene_count = max(len(storyboard), 1)
+    frames_per_scene = total_frames / scene_count
+    scene_index = min(int(frame_index / frames_per_scene), scene_count - 1)
+    scene_progress = min(1.0, max(0.0, (frame_index - scene_index * frames_per_scene) / frames_per_scene))
+    images: list[Image.Image | None] = [None] * scene_count
+
+    scene_indices = {scene_index}
+    if scene_index > 0 and frame_index - scene_index * frames_per_scene < min(10, frames_per_scene / 3):
+        scene_indices.add(scene_index - 1)
+
+    for index in scene_indices:
+        source_index = min(index * len(sources) // scene_count, len(sources) - 1)
+        first_scene = math.ceil(source_index * scene_count / len(sources))
+        next_scene = math.ceil((source_index + 1) * scene_count / len(sources))
+        group_size = max(next_scene - first_scene, 1)
+        local_progress = scene_progress if index == scene_index else 1.0
+        source_progress = ((index - first_scene) + local_progress) / group_size
+        images[index] = _video_frame_at(sources[source_index], min(1.0, source_progress))
+    return images
+
+
+def _mix_external_audio(
+    video_path,
+    duration: int,
+    voiceover_audio: str | None,
+    music_audio: str | None,
+) -> None:
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    muxed_path = video_path.with_name(f"{video_path.stem}.with-audio.mp4")
+    command = [ffmpeg, "-y", "-i", str(video_path)]
+    filters = []
+    audio_labels = []
+    input_index = 1
+
+    if voiceover_audio:
+        command.extend(["-i", voiceover_audio])
+        filters.append(f"[{input_index}:a:0]aresample=48000,volume=1.0,apad[narration]")
+        audio_labels.append("[narration]")
+        input_index += 1
+    if music_audio:
+        command.extend(["-stream_loop", "-1", "-i", music_audio])
+        filters.append(f"[{input_index}:a:0]aresample=48000,volume=0.16[music]")
+        audio_labels.append("[music]")
+
+    if len(audio_labels) == 2:
+        filters.append(
+            f"{''.join(audio_labels)}amix=inputs=2:duration=longest:dropout_transition=1:normalize=0,"
+            f"alimiter=limit=0.95,atrim=duration={duration}[aout]"
+        )
+    else:
+        filters.append(f"{audio_labels[0]}atrim=duration={duration},alimiter=limit=0.95[aout]")
+
+    command.extend(
+        [
+            "-filter_complex", ";".join(filters),
+            "-map", "0:v:0", "-map", "[aout]",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            "-t", str(duration), "-movflags", "+faststart", str(muxed_path),
+        ]
+    )
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        os.replace(muxed_path, video_path)
+    except subprocess.CalledProcessError as exc:
+        raise ValueError("Could not mix the supplied audio; check that each file contains an audio track.") from exc
+    finally:
+        if muxed_path.exists():
+            muxed_path.unlink()
+
+
 def _make_frame(
     width: int,
     height: int,
@@ -655,6 +760,9 @@ def render_video(
     preview: bool = False,
     storyboard: list | None = None,
     visual_assets: list[str] | None = None,
+    video_assets: list[str] | None = None,
+    voiceover_audio: str | None = None,
+    music_audio: str | None = None,
 ) -> tuple[str, str]:
     output_path = ensure_output_dir(output_dir)
     width, height = _resolve_resolution(orientation, preview=preview)
@@ -669,18 +777,42 @@ def render_video(
                 visual_images.append(ImageOps.exif_transpose(image).convert("RGB"))
         except (OSError, ValueError):
             continue
-    if not visual_images and not preview:
+    for audio_path in (voiceover_audio, music_audio):
+        if audio_path and not os.path.isfile(audio_path):
+            raise ValueError(f"Audio asset does not exist: {audio_path}")
+    video_sources = _open_video_sources(video_assets or [])
+    if not visual_images and not video_sources and not preview:
+        for reader, _ in video_sources:
+            reader.close()
         raise ValueError(
-            "A final product video requires real product screenshots. Add captures to "
-            "assets/screenshots/ (or screenshots/, screens/, or public/)."
+            "A final product video requires real product screenshots or product screen recordings. "
+            "Add captures to assets/screenshots/ or recordings to assets/videos/."
         )
     writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8, macro_block_size=1)
-    for index in range(total_frames):
-        frame = _make_frame(width, height, product_name, style, index, total_frames, visual_images, storyboard)
-        writer.append_data(np.asarray(frame))
-    writer.close()
-    if style.lower() == "premium":
+    try:
+        for index in range(total_frames):
+            frame_images = (
+                _video_images_for_frame(video_sources, storyboard or [], index, total_frames)
+                if video_sources
+                else visual_images
+            )
+            frame = _make_frame(width, height, product_name, style, index, total_frames, frame_images, storyboard)
+            writer.append_data(np.asarray(frame))
+    finally:
+        writer.close()
+        for reader, _ in video_sources:
+            reader.close()
+    if voiceover_audio or music_audio:
+        _mix_external_audio(video_path, duration, voiceover_audio, music_audio)
+    elif style.lower() == "premium":
         _add_premium_sound_design(video_path, duration, storyboard or [])
+    audio_tracks = []
+    if voiceover_audio:
+        audio_tracks.append("voiceover")
+    if music_audio:
+        audio_tracks.append("music")
+    if not audio_tracks and style.lower() == "premium":
+        audio_tracks.append("generated_sound_design")
     metadata = {
         "productName": product_name,
         "duration": duration,
@@ -688,10 +820,18 @@ def render_video(
         "style": style,
         "resolution": f"{width}x{height}",
         "preview": preview,
-        "visualSource": "product_screenshots" if visual_images else "no_product_screenshots",
+        "visualSource": (
+            "product_video_clips" if video_sources else
+            "product_screenshots" if visual_images else
+            "no_product_screenshots"
+        ),
         "visualAssetCount": len(visual_images),
+        "videoAssetCount": len(video_sources),
+        "audioTracks": audio_tracks,
     }
-    if style.lower() == "premium":
+    if music_audio:
+        metadata["soundtrack"] = "provided_music"
+    elif style.lower() == "premium" and not voiceover_audio:
         metadata["soundtrack"] = "cinematic_ambient_bed_and_ui_cues"
     if storyboard:
         metadata["storyboardCount"] = len(storyboard)

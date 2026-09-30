@@ -16,6 +16,16 @@ _VISUAL_ASSET_FOLDERS = (
     "docs/screenshots",
 )
 _VISUAL_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+_VIDEO_ASSET_FOLDERS = (
+    "assets/video",
+    "assets/videos",
+    "assets/recordings",
+    "videos",
+    "recordings",
+    "public",
+    "assets",
+)
+_VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
 _IGNORED_ASSET_PARTS = {".git", ".venv", "node_modules", "dist", "build", "madvid-output"}
 
 
@@ -67,6 +77,38 @@ def discover_visual_assets(project_root: str | None = None, limit: int = 12) -> 
                     continue
                 image.verify()
         except (OSError, ValueError):
+            continue
+        usable.append(path)
+
+    usable.sort(
+        key=lambda path: (
+            not any(word in path.name.lower() for word in ("screen", "capture", "product", "demo")),
+            path.as_posix().lower(),
+        )
+    )
+    return [str(path) for path in usable[:limit]]
+
+
+def discover_video_assets(project_root: str | None = None, limit: int = 8) -> list[str]:
+    """Find product recordings in conventional project asset folders."""
+    root = Path(project_root or ".")
+    candidates: set[Path] = set()
+    for folder in _VIDEO_ASSET_FOLDERS:
+        directory = root / folder
+        if directory.is_dir():
+            candidates.update(directory.rglob("*"))
+
+    usable = []
+    for path in candidates:
+        if not path.is_file() or path.suffix.lower() not in _VIDEO_EXTENSIONS:
+            continue
+        relative_path = path.relative_to(root)
+        if any(part in _IGNORED_ASSET_PARTS or part.startswith(".") for part in relative_path.parts):
+            continue
+        try:
+            if path.stat().st_size > 500_000_000:
+                continue
+        except OSError:
             continue
         usable.append(path)
 

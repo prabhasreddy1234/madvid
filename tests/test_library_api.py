@@ -2,6 +2,7 @@ import pytest
 from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
+from madvid.asset_manager import discover_video_assets
 from madvid.models import StoryboardScene
 from madvid.storyboard_generator import generate_storyboard
 from madvid.video_renderer import _apply_transition, _make_frame, render_video
@@ -35,6 +36,20 @@ def test_library_generates_video_from_project(tmp_path):
 def test_final_render_requires_real_product_screenshot(tmp_path):
     with pytest.raises(ValueError, match="requires real product screenshots"):
         render_video("Demo App", output_dir=str(tmp_path), duration=15)
+
+
+def test_discover_video_assets_finds_recordings_and_ignores_build_output(tmp_path):
+    videos_dir = tmp_path / "assets" / "videos"
+    videos_dir.mkdir(parents=True)
+    (videos_dir / "product-demo.mp4").write_bytes(b"video")
+    (videos_dir / "notes.txt").write_text("not a video", encoding="utf-8")
+    ignored_dir = tmp_path / "assets" / "videos" / "build"
+    ignored_dir.mkdir()
+    (ignored_dir / "generated.mp4").write_bytes(b"video")
+
+    assets = discover_video_assets(str(tmp_path))
+
+    assert assets == [str(videos_dir / "product-demo.mp4")]
 
 
 def test_real_screenshots_cross_dissolve_between_scenes():
