@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from .asset_manager import discover_visual_assets, ensure_output_dir
+from .asset_manager import discover_video_assets, discover_visual_assets, ensure_output_dir
 from .config import load_config, load_project_config
 from .project_analyzer import analyze_project
 from .security import filter_sensitive_data
@@ -34,8 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("url", nargs="?", help="Optional URL for website or app store page")
     parser.add_argument("--duration", type=int, help="Video duration in seconds (15-30)")
-    parser.add_argument("--voice", action="store_true", help="Enable voice-over")
-    parser.add_argument("--no-voice", dest="voice", action="store_false", help="Disable voice-over")
+    parser.add_argument("--voice", action="store_true", help="Write a voice-over script")
+    parser.add_argument("--no-voice", dest="voice", action="store_false", help="Omit the voice-over script")
+    parser.add_argument("--voiceover-audio", metavar="PATH", help="Mix recorded narration into the final video")
+    parser.add_argument("--music-audio", metavar="PATH", help="Mix a music track under narration")
     parser.add_argument("--vertical", dest="orientation", action="store_const", const="vertical", help="Render a vertical video")
     parser.add_argument("--landscape", dest="orientation", action="store_const", const="landscape", help="Render a landscape video")
     parser.add_argument("--preview", action="store_true", help="Generate a quick low-resolution preview")
@@ -163,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
             preview=cfg.preview,
             storyboard=storyboard,
             visual_assets=discover_visual_assets(project_root),
+            video_assets=discover_video_assets(project_root),
+            voiceover_audio=args.voiceover_audio,
+            music_audio=args.music_audio,
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc

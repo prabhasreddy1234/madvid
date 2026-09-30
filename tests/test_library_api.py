@@ -1,3 +1,9 @@
+import subprocess
+import wave
+
+import imageio.v2 as iio
+import imageio_ffmpeg
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -50,6 +56,54 @@ def test_discover_video_assets_finds_recordings_and_ignores_build_output(tmp_pat
     assets = discover_video_assets(str(tmp_path))
 
     assert assets == [str(videos_dir / "product-demo.mp4")]
+
+
+def test_project_generation_uses_recording_and_mixes_real_audio(tmp_path):
+    project_dir = tmp_path / "recorded-app"
+    videos_dir = project_dir / "assets" / "videos"
+    videos_dir.mkdir(parents=True)
+    (project_dir / "README.md").write_text("# Recorded App\n\n- Clear workflow\n", encoding="utf-8")
+
+    recording_path = videos_dir / "product-demo.mp4"
+    writer = iio.get_writer(str(recording_path), fps=12, codec="libx264", macro_block_size=1)
+    for frame_index in range(12):
+        frame = np.zeros((64, 96, 3), dtype=np.uint8)
+        frame[:, :, 0] = frame_index * 18
+        writer.append_data(frame)
+    writer.close()
+
+    audio_dir = project_dir / "assets" / "audio"
+    audio_dir.mkdir()
+    samples = (np.sin(np.arange(8000) * 2 * np.pi * 440 / 16000) * 4000).astype(np.int16)
+    audio_paths = [audio_dir / "narration.wav", audio_dir / "music.wav"]
+    for audio_path in audio_paths:
+        with wave.open(str(audio_path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(16000)
+            output.writeframes(samples.tobytes())
+
+    result = generate_video(
+        project_root=str(project_dir),
+        duration=1,
+        style="minimal",
+        preview=True,
+        voiceover_audio=str(audio_paths[0]),
+        music_audio=str(audio_paths[1]),
+    )
+
+    assert result["metadata"]["visualSource"] == "product_video_clips"
+    assert result["metadata"]["videoAssetCount"] == 1
+    assert result["metadata"]["audioTracks"] == ["voiceover", "music"]
+    subprocess.run(
+        [
+            imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-i", result["video_path"],
+            "-map", "0:a:0", "-f", "null", "-",
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
 
 
 def test_real_screenshots_cross_dissolve_between_scenes():

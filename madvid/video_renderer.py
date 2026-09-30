@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import math
+import os
 import subprocess
 import tempfile
 import wave
@@ -507,31 +507,39 @@ def _apply_transition(previous: Image.Image, current: Image.Image, progress: flo
     return frame
 
 
-def _open_video_sources(video_assets: list[str]) -> list[tuple[object, int]]:
+def _open_video_sources(video_assets: list[str]) -> list[tuple[object, int, float]]:
     sources = []
     try:
         for path in video_assets:
             if not os.path.isfile(path):
                 raise ValueError(f"Product video asset does not exist: {path}")
             reader = iio.get_reader(path)
-            metadata = reader.get_meta_data()
-            fps = float(metadata.get("fps") or 24)
-            duration = float(metadata.get("duration") or 0)
-            frame_count = int(round(fps * duration)) if math.isfinite(duration) else 0
-            if fps <= 0 or frame_count < 1:
+            try:
+                metadata = reader.get_meta_data()
+                fps = float(metadata.get("fps") or 24)
+                duration = float(metadata.get("duration") or 0)
+                if not math.isfinite(fps) or fps <= 0:
+                    raise ValueError(f"Product video asset has invalid frame rate: {path}")
+                if math.isfinite(duration) and duration > 0:
+                    frame_count = round(fps * duration)
+                else:
+                    frame_count = int(reader.count_frames())
+                if frame_count < 1:
+                    raise ValueError(f"Product video asset has no readable frames: {path}")
+            except Exception:
                 reader.close()
-                raise ValueError(f"Product video asset has no readable frames: {path}")
-            sources.append((reader, frame_count))
+                raise
+            sources.append((reader, frame_count, fps))
     except Exception:
-        for reader, _ in sources:
+        for reader, _, _ in sources:
             reader.close()
         raise
     return sources
 
 
-def _video_frame_at(source: tuple[object, int], progress: float) -> Image.Image:
-    reader, frame_count = source
-    frame_index = min(frame_count - 1, max(0, round((frame_count - 1) * progress)))
+def _video_frame_at(source: tuple[object, int, float], elapsed_seconds: float) -> Image.Image:
+    reader, frame_count, source_fps = source
+    frame_index = min(frame_count - 1, max(0, round(elapsed_seconds * source_fps)))
     return Image.fromarray(reader.get_data(frame_index)).convert("RGB")
 
 
@@ -540,9 +548,11 @@ def _video_images_for_frame(
     storyboard: list,
     frame_index: int,
     total_frames: int,
+    output_fps: int,
 ) -> list[Image.Image | None]:
     scene_count = max(len(storyboard), 1)
     frames_per_scene = total_frames / scene_count
+    seconds_per_scene = frames_per_scene / output_fps
     scene_index = min(int(frame_index / frames_per_scene), scene_count - 1)
     scene_progress = min(1.0, max(0.0, (frame_index - scene_index * frames_per_scene) / frames_per_scene))
     images: list[Image.Image | None] = [None] * scene_count
@@ -554,11 +564,9 @@ def _video_images_for_frame(
     for index in scene_indices:
         source_index = min(index * len(sources) // scene_count, len(sources) - 1)
         first_scene = math.ceil(source_index * scene_count / len(sources))
-        next_scene = math.ceil((source_index + 1) * scene_count / len(sources))
-        group_size = max(next_scene - first_scene, 1)
-        local_progress = scene_progress if index == scene_index else 1.0
-        source_progress = ((index - first_scene) + local_progress) / group_size
-        images[index] = _video_frame_at(sources[source_index], min(1.0, source_progress))
+        local_progress = scene_progress if index == scene_index else 0.999
+        elapsed_seconds = (index - first_scene + local_progress) * seconds_per_scene
+        images[index] = _video_frame_at(sources[source_index], elapsed_seconds)
     return images
 
 
@@ -609,6 +617,38 @@ def _mix_external_audio(
     finally:
         if muxed_path.exists():
             muxed_path.unlink()
+
+
+def _validate_export(video_path, width: int, height: int, duration: int, expect_audio: bool) -> None:
+    reader = iio.get_reader(str(video_path))
+    try:
+        metadata = reader.get_meta_data()
+        actual_size = tuple(metadata.get("size") or ())
+        actual_duration = float(metadata.get("duration") or 0)
+        fps = float(metadata.get("fps") or 0)
+        if actual_size != (width, height):
+            raise RuntimeError(f"Rendered video has unexpected dimensions: {actual_size}")
+        if not math.isfinite(actual_duration) or abs(actual_duration - duration) > max(0.25, 2 / max(fps, 1)):
+            raise RuntimeError(f"Rendered video has unexpected duration: {actual_duration}")
+        final_frame = max(0, math.ceil(actual_duration * max(fps, 1)) - 2)
+        if reader.get_data(final_frame).size == 0:
+            raise RuntimeError("Rendered video contains an unreadable final frame")
+    finally:
+        reader.close()
+
+    if expect_audio:
+        try:
+            subprocess.run(
+                [
+                    imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-i", str(video_path),
+                    "-map", "0:a:0", "-f", "null", "-",
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError("Rendered audio track failed decoding") from exc
 
 
 def _make_frame(
@@ -781,9 +821,24 @@ def render_video(
         if audio_path and not os.path.isfile(audio_path):
             raise ValueError(f"Audio asset does not exist: {audio_path}")
     video_sources = _open_video_sources(video_assets or [])
-    if not visual_images and not video_sources and not preview:
-        for reader, _ in video_sources:
+    scene_count = max(len(storyboard or []), 1)
+    if len(video_sources) > scene_count:
+        for reader, _, _ in video_sources:
             reader.close()
+        raise ValueError("Provide no more screen recordings than storyboard scenes.")
+    for source_index, (_, frame_count, source_fps) in enumerate(video_sources):
+        first_scene = math.ceil(source_index * scene_count / len(video_sources))
+        next_scene = math.ceil((source_index + 1) * scene_count / len(video_sources))
+        required_duration = duration * (next_scene - first_scene) / scene_count
+        available_duration = frame_count / source_fps
+        if available_duration + 1 / source_fps < required_duration:
+            for reader, _, _ in video_sources:
+                reader.close()
+            raise ValueError(
+                f"Screen recording is too short for its timeline segment "
+                f"({available_duration:.1f}s available; {required_duration:.1f}s required)."
+            )
+    if not visual_images and not video_sources and not preview:
         raise ValueError(
             "A final product video requires real product screenshots or product screen recordings. "
             "Add captures to assets/screenshots/ or recordings to assets/videos/."
@@ -792,7 +847,7 @@ def render_video(
     try:
         for index in range(total_frames):
             frame_images = (
-                _video_images_for_frame(video_sources, storyboard or [], index, total_frames)
+                    _video_images_for_frame(video_sources, storyboard or [], index, total_frames, fps)
                 if video_sources
                 else visual_images
             )
@@ -800,7 +855,7 @@ def render_video(
             writer.append_data(np.asarray(frame))
     finally:
         writer.close()
-        for reader, _ in video_sources:
+        for reader, _, _ in video_sources:
             reader.close()
     if voiceover_audio or music_audio:
         _mix_external_audio(video_path, duration, voiceover_audio, music_audio)
@@ -813,12 +868,15 @@ def render_video(
         audio_tracks.append("music")
     if not audio_tracks and style.lower() == "premium":
         audio_tracks.append("generated_sound_design")
+    _validate_export(video_path, width, height, duration, bool(audio_tracks))
     metadata = {
         "productName": product_name,
         "duration": duration,
         "orientation": orientation,
         "style": style,
         "resolution": f"{width}x{height}",
+        "frameRate": fps,
+        "videoCodec": "h264",
         "preview": preview,
         "visualSource": (
             "product_video_clips" if video_sources else

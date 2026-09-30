@@ -123,7 +123,15 @@ Generate vertical output:
 madvid --vertical --duration 18 --style premium
 ```
 
-For product-accurate visuals, place full-screen product captures in `assets/screenshots/`. MADVID also searches `screenshots/`, `screens/`, and `public/`, cycles through captures in the rendered video, and records their use in `metadata.json`. A final export requires at least one real screenshot; preview mode can still run without captures and labels its generic mockup in the metadata.
+For a production export, place screen recordings in `assets/videos/` or `assets/recordings/` using `.mp4`, `.mov`, `.m4v`, `.webm`, or `.mkv`. MADVID maps the clips across the storyboard, preserves their motion, and reports their use in `metadata.json`. When no clips are found, it uses still product captures from `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`. A final export requires real recordings or screenshots; preview mode can run without either and labels its generic mockup in the metadata.
+
+Supply recorded narration and licensed music to include real audio in the MP4:
+
+```bash
+madvid --voiceover-audio assets/audio/narration.wav --music-audio assets/audio/launch-track.wav
+```
+
+`--voice` writes a narration script to `voiceover.txt`; it does not synthesize speech. Audio files must contain a decodable audio stream. If both tracks are supplied, MADVID mixes the narration above the music bed.
 
 ### Website and app store examples
 
@@ -164,8 +172,10 @@ Available options:
 
 ```bash
 --duration N          Video length in seconds (15-30)
---voice               Enable voice-over
---no-voice            Disable voice-over
+--voice               Write a voice-over script
+--no-voice            Omit the voice-over script
+--voiceover-audio PATH Mix recorded narration into the MP4
+--music-audio PATH    Mix a music track under narration
 --vertical            Use vertical orientation
 --landscape           Use landscape orientation
 --preview             Generate a fast preview render
@@ -184,7 +194,9 @@ result = client.generate_from_project(
     project_root=".",
     duration=20,
     style="premium",
-    preview=True,
+  preview=False,
+  voiceover_audio="assets/audio/narration.wav",
+  music_audio="assets/audio/launch-track.wav",
 )
 
 print(result["video_path"])

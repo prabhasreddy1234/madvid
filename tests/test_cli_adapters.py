@@ -8,7 +8,7 @@ from madvid.adapters import (
     TerminalAdapter,
     get_adapter,
 )
-from madvid.cli import main
+from madvid.cli import build_parser, main
 
 
 def test_generic_adapter_has_base_invocation_behavior():
@@ -22,6 +22,15 @@ def test_vendor_adapters_are_registered():
     assert CodexCliAdapter().name == "codex-cli"
     assert ClaudeCodeAdapter().name == "claude-code"
     assert GeminiCliAdapter().name == "gemini-cli"
+
+
+def test_cli_accepts_recorded_audio_paths():
+    args = build_parser().parse_args(
+        ["--voiceover-audio", "narration.wav", "--music-audio", "music.wav"]
+    )
+
+    assert args.voiceover_audio == "narration.wav"
+    assert args.music_audio == "music.wav"
 
 
 def test_vendor_adapter_install_text_mentions_skill_registration():

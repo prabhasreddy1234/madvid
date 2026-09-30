@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .asset_manager import discover_visual_assets
+from .asset_manager import discover_video_assets, discover_visual_assets
 from .project_analyzer import analyze_project
 from .providers import LLMProvider, LocalProvider
 from .source_resolver import SourceType, resolve_source
@@ -46,6 +46,9 @@ class MADVID:
         style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
+        video_assets: list[str] | None = None,
+        voiceover_audio: str | None = None,
+        music_audio: str | None = None,
     ) -> dict:
         product = analyze_project(project_root)
         product = self._enrich_product(product, source_label="PROJECT")
@@ -60,6 +63,9 @@ class MADVID:
             preview=preview,
             storyboard=storyboard,
             visual_assets=discover_visual_assets(project_root),
+            video_assets=discover_video_assets(project_root) if video_assets is None else video_assets,
+            voiceover_audio=voiceover_audio,
+            music_audio=music_audio,
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = "PROJECT"
@@ -82,6 +88,9 @@ class MADVID:
         style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
+        video_assets: list[str] | None = None,
+        voiceover_audio: str | None = None,
+        music_audio: str | None = None,
     ) -> dict:
         source_type = resolve_source(source_url, project_root=project_root)
         if source_type == SourceType.WEBSITE:
@@ -102,6 +111,9 @@ class MADVID:
             preview=preview,
             storyboard=storyboard,
             visual_assets=discover_visual_assets(project_root),
+            video_assets=discover_video_assets(project_root) if video_assets is None else video_assets,
+            voiceover_audio=voiceover_audio,
+            music_audio=music_audio,
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = source_type.value
@@ -124,6 +136,9 @@ class MADVID:
         style: str = "premium",
         preview: bool = False,
         orientation: str = "landscape",
+        video_assets: list[str] | None = None,
+        voiceover_audio: str | None = None,
+        music_audio: str | None = None,
     ) -> dict:
         if source_url:
             return self.generate_from_url(
@@ -133,6 +148,9 @@ class MADVID:
                 style=style,
                 preview=preview,
                 orientation=orientation,
+                video_assets=video_assets,
+                voiceover_audio=voiceover_audio,
+                music_audio=music_audio,
             )
         return self.generate_from_project(
             project_root=project_root,
@@ -140,6 +158,9 @@ class MADVID:
             style=style,
             preview=preview,
             orientation=orientation,
+            video_assets=video_assets,
+            voiceover_audio=voiceover_audio,
+            music_audio=music_audio,
         )
 
 
@@ -152,6 +173,9 @@ def generate_video(
     preview: bool = False,
     orientation: str = "landscape",
     llm_provider: LLMProvider | None = None,
+    video_assets: list[str] | None = None,
+    voiceover_audio: str | None = None,
+    music_audio: str | None = None,
 ) -> dict:
     client = MADVID(llm_provider=llm_provider)
     return client.generate(
@@ -161,4 +185,7 @@ def generate_video(
         style=style,
         preview=preview,
         orientation=orientation,
+        video_assets=video_assets,
+        voiceover_audio=voiceover_audio,
+        music_audio=music_audio,
     )
