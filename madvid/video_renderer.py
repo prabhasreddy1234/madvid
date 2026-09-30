@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import wave
 from functools import lru_cache
+from pathlib import Path
 
 import imageio.v2 as iio
 import imageio_ffmpeg
@@ -809,7 +810,7 @@ def render_video(
     fps = 24
     total_frames = fps * duration
     video_name = "preview.mp4" if preview else "product-intro.mp4"
-    video_path = output_path / video_name
+    final_video_path = output_path / video_name
     visual_images: list[Image.Image] = []
     for asset_path in visual_assets or []:
         try:
@@ -843,32 +844,50 @@ def render_video(
             "A final product video requires real product screenshots or product screen recordings. "
             "Add captures to assets/screenshots/ or recordings to assets/videos/."
         )
-    writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8, macro_block_size=1)
+    video_asset_count = len(video_sources)
+    with tempfile.NamedTemporaryFile(
+        prefix=f".{video_name}.", suffix=".tmp.mp4", dir=output_path, delete=False
+    ) as temporary_video:
+        video_path = Path(temporary_video.name)
+    video_path.unlink()
+    writer = None
     try:
+        writer = iio.get_writer(str(video_path), fps=fps, codec="libx264", quality=8, macro_block_size=1)
         for index in range(total_frames):
             frame_images = (
-                    _video_images_for_frame(video_sources, storyboard or [], index, total_frames, fps)
+                _video_images_for_frame(video_sources, storyboard or [], index, total_frames, fps)
                 if video_sources
                 else visual_images
             )
             frame = _make_frame(width, height, product_name, style, index, total_frames, frame_images, storyboard)
             writer.append_data(np.asarray(frame))
-    finally:
         writer.close()
+        writer = None
         for reader, _, _ in video_sources:
             reader.close()
-    if voiceover_audio or music_audio:
-        _mix_external_audio(video_path, duration, voiceover_audio, music_audio)
-    elif style.lower() == "premium":
-        _add_premium_sound_design(video_path, duration, storyboard or [])
-    audio_tracks = []
-    if voiceover_audio:
-        audio_tracks.append("voiceover")
-    if music_audio:
-        audio_tracks.append("music")
-    if not audio_tracks and style.lower() == "premium":
-        audio_tracks.append("generated_sound_design")
-    _validate_export(video_path, width, height, duration, bool(audio_tracks))
+        video_sources = []
+        if voiceover_audio or music_audio:
+            _mix_external_audio(video_path, duration, voiceover_audio, music_audio)
+        elif style.lower() == "premium":
+            _add_premium_sound_design(video_path, duration, storyboard or [])
+        audio_tracks = []
+        if voiceover_audio:
+            audio_tracks.append("voiceover")
+        if music_audio:
+            audio_tracks.append("music")
+        if not audio_tracks and style.lower() == "premium":
+            audio_tracks.append("generated_sound_design")
+        _validate_export(video_path, width, height, duration, bool(audio_tracks))
+        os.replace(video_path, final_video_path)
+        video_path = final_video_path
+    except Exception:
+        if writer is not None:
+            writer.close()
+        for reader, _, _ in video_sources:
+            reader.close()
+        if video_path.exists():
+            video_path.unlink()
+        raise
     metadata = {
         "productName": product_name,
         "duration": duration,
@@ -879,12 +898,12 @@ def render_video(
         "videoCodec": "h264",
         "preview": preview,
         "visualSource": (
-            "product_video_clips" if video_sources else
+            "product_video_clips" if video_asset_count else
             "product_screenshots" if visual_images else
             "no_product_screenshots"
         ),
         "visualAssetCount": len(visual_images),
-        "videoAssetCount": len(video_sources),
+        "videoAssetCount": video_asset_count,
         "audioTracks": audio_tracks,
     }
     if music_audio:

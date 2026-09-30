@@ -123,7 +123,7 @@ Generate vertical output:
 madvid --vertical --duration 18 --style premium
 ```
 
-For a production export, place screen recordings in `assets/videos/` or `assets/recordings/` using `.mp4`, `.mov`, `.m4v`, `.webm`, or `.mkv`. MADVID maps the clips across the storyboard, preserves their motion, and reports their use in `metadata.json`. When no clips are found, it uses still product captures from `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`. A final export requires real recordings or screenshots; preview mode can run without either and labels its generic mockup in the metadata.
+For a production export, place screen recordings in `assets/videos/` or `assets/recordings/` using `.mp4`, `.mov`, `.m4v`, `.webm`, or `.mkv`. MADVID maps clips in filename order across the storyboard, preserves their recorded frame rate, and rejects recordings that are too short for their assigned timeline. Clip audio is not used; supply narration or music separately. When no clips are found, MADVID uses still product captures from `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`. A final export requires real recordings or screenshots; preview mode can run without either and labels its generic mockup in the metadata.
 
 Supply recorded narration and licensed music to include real audio in the MP4:
 

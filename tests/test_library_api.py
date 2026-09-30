@@ -104,6 +104,41 @@ def test_project_generation_uses_recording_and_mixes_real_audio(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+    with pytest.raises(ValueError, match="too short for its timeline segment"):
+        render_video(
+            "Recorded App",
+            output_dir=str(project_dir / "short-render"),
+            duration=2,
+            style="minimal",
+            preview=True,
+            storyboard=result["storyboard"],
+            video_assets=[str(recording_path)],
+        )
+
+
+def test_failed_audio_mux_preserves_previous_export(tmp_path):
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    existing_export = output_dir / "preview.mp4"
+    existing_export.write_bytes(b"previous export")
+    screenshot_path = tmp_path / "screen.png"
+    Image.new("RGB", (640, 360), (35, 150, 100)).save(screenshot_path)
+    invalid_audio = tmp_path / "invalid-audio.wav"
+    invalid_audio.write_text("not an audio stream", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Could not mix the supplied audio"):
+        render_video(
+            "Demo App",
+            output_dir=str(output_dir),
+            duration=1,
+            style="minimal",
+            preview=True,
+            visual_assets=[str(screenshot_path)],
+            voiceover_audio=str(invalid_audio),
+        )
+
+    assert existing_export.read_bytes() == b"previous export"
+    assert not list(output_dir.glob(".*.tmp.mp4"))
 
 
 def test_real_screenshots_cross_dissolve_between_scenes():
