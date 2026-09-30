@@ -70,8 +70,9 @@ def _compose_premium_shot(
     image: Image.Image | None,
     scene: object | None,
     progress: float,
+    style_name: str = "premium",
 ) -> Image.Image:
-    style = get_style("premium")
+    style = get_style(style_name)
     accent = _rgb(style.accent)
     eased = progress * progress * (3 - 2 * progress)
     frame = Image.new("RGB", (width, height), _rgb(style.background))
@@ -86,9 +87,9 @@ def _compose_premium_shot(
         draw.rectangle((0, y0, width, y1), fill=color)
 
     panel_width = int(width * 0.88)
-    panel_height = int(height * 0.78)
+    panel_height = int(height * (0.76 if style_name == "cinematic" else 0.78))
     panel_left = (width - panel_width) // 2
-    panel_top = int(height * 0.045)
+    panel_top = int(height * (0.13 if style_name == "cinematic" else 0.045))
     radius = max(8, int(min(width, height) * 0.014))
     shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
@@ -129,6 +130,20 @@ def _compose_premium_shot(
     screen.putalpha(screen_mask)
     frame.alpha_composite(screen, (panel_left, panel_top))
     draw = ImageDraw.Draw(frame)
+    if style_name == "cinematic" and image is not None and image.height / image.width <= 1.15:
+        chrome_height = max(22, int(panel_height * 0.085))
+        draw.rectangle(
+            (panel_left, panel_top, panel_left + panel_width - 1, panel_top + chrome_height),
+            fill=(244, 246, 248, 255),
+        )
+        dot_radius = max(2, chrome_height // 9)
+        for dot_index, dot_color in enumerate(((245, 96, 86, 255), (246, 187, 66, 255), (57, 190, 112, 255))):
+            dot_x = panel_left + int(chrome_height * 0.55) + dot_index * dot_radius * 3
+            draw.ellipse(
+                (dot_x - dot_radius, panel_top + chrome_height // 2 - dot_radius,
+                 dot_x + dot_radius, panel_top + chrome_height // 2 + dot_radius),
+                fill=dot_color,
+            )
     draw.rounded_rectangle(
         (panel_left, panel_top, panel_left + panel_width - 1, panel_top + panel_height - 1),
         radius=radius,
@@ -207,6 +222,8 @@ def _compose_premium_shot(
 
     headline = getattr(scene, "text_overlay", "") or ""
     description = getattr(scene, "voice_over", "") or ""
+    if description.strip() == headline.strip():
+        description = ""
     text_alpha = int(255 * min(1.0, max(0.0, (progress - 0.06) / 0.2)))
     lift = int(height * 0.012 * (1.0 - eased))
     text_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
@@ -253,8 +270,8 @@ def _compose_shot(
     scene_count: int,
     progress: float,
 ) -> Image.Image:
-    if style_name.lower() == "premium":
-        return _compose_premium_shot(width, height, image, scene, progress)
+    if style_name.lower() == "premium" or (style_name.lower() == "cinematic" and width >= height):
+        return _compose_premium_shot(width, height, image, scene, progress, style_name.lower())
 
     style = get_style(style_name)
     background = _rgb(style.background)
@@ -426,6 +443,8 @@ def _compose_shot(
 
     headline = getattr(scene, "text_overlay", "") or product_name
     description = getattr(scene, "voice_over", "")
+    if description.strip() == headline.strip():
+        description = ""
     label_font = _font(max(12, int(height * (0.021 if horizontal else 0.019))), True)
     title_size = max(22, int(height * (0.062 if horizontal else 0.052)))
     title_font = _font(title_size, True)
