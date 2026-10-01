@@ -1,5 +1,7 @@
 """Style registry for MADVID visuals."""
 
+from __future__ import annotations
+
 from .cinematic import CinematicStyle
 from .minimal import MinimalStyle
 from .premium import PremiumStyle

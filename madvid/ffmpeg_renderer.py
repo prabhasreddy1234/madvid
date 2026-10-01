@@ -416,6 +416,9 @@ def render_video_ffmpeg(
     output_path = ensure_output_dir(output_dir)
     w, h = _resolve_resolution(orientation, preview=preview)
     scenes = storyboard or []
+    if not scenes:
+        from .storyboard_generator import generate_storyboard
+        scenes = generate_storyboard(product_name=product_name, duration=duration)
     scene_count = max(len(scenes), 1)
     images = list(visual_assets or [])
     style_obj = get_style(style, brand_colors)
@@ -559,7 +562,7 @@ def _concat_with_xfade(
     labels = [f"[{i}:v]" for i in range(len(clips))]
 
     # Chain xfades: each transition offsets by cumulative scene duration minus overlap
-    scene_count = len(clips)
+    scene_count = max(len(clips), 1)
     scene_dur = total_duration / scene_count
     current_label = labels[0]
 
