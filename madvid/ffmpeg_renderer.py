@@ -449,7 +449,7 @@ def render_video_ffmpeg(
             img_input_index: int | None = None
             if img_path and os.path.isfile(img_path):
                 img_input_args = ["-loop", "1", "-t", str(scene_dur + 1), "-i", img_path]
-                img_input_index = 0
+                img_input_index = 1
 
             filter_chain, out_label = _build_scene_filter(
                 scene_index=idx,
@@ -740,4 +740,4 @@ def _mix_audio(
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as exc:
-        raise ValueError("Could not mix audio. Check that each file contains an audio track.") from exc
+        raise ValueError("Could not mix the supplied audio. Check that each file contains an audio track.") from exc

@@ -18,6 +18,11 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from .asset_manager import ensure_output_dir, write_json
 from .styles import get_style
 
+_NO_PRODUCT_VISUALS = (
+    "A final product video requires real product screenshots or product screen recordings. "
+    "Add captures to assets/screenshots/ or recordings to assets/videos/."
+)
+
 
 def _ffmpeg_available() -> bool:
     try:
@@ -832,23 +837,32 @@ def render_video(
     scene-specific layouts, xfade transitions) when FFmpeg 4.3+ is available.
     Falls back to the PIL frame renderer otherwise.
     """
+    has_visual_file = any(os.path.isfile(path) for path in visual_assets or [])
+    has_video_file = any(os.path.isfile(path) for path in video_assets or [])
+    if not preview and not has_visual_file and not has_video_file:
+        raise ValueError(_NO_PRODUCT_VISUALS)
+
     if _ffmpeg_available() and not video_assets:
         from .ffmpeg_renderer import render_video_ffmpeg
-        return render_video_ffmpeg(
-            product_name=product_name,
-            output_dir=output_dir,
-            duration=duration,
-            style=style,
-            orientation=orientation,
-            preview=preview,
-            storyboard=storyboard,
-            visual_assets=visual_assets,
-            video_assets=video_assets,
-            voiceover_audio=voiceover_audio,
-            music_audio=music_audio,
-            brand_colors=brand_colors,
-            tagline=tagline,
-        )
+        try:
+            return render_video_ffmpeg(
+                product_name=product_name,
+                output_dir=output_dir,
+                duration=duration,
+                style=style,
+                orientation=orientation,
+                preview=preview,
+                storyboard=storyboard,
+                visual_assets=visual_assets,
+                video_assets=video_assets,
+                voiceover_audio=voiceover_audio,
+                music_audio=music_audio,
+                brand_colors=brand_colors,
+                tagline=tagline,
+            )
+        except subprocess.CalledProcessError:
+            # Keep video generation available when a bundled FFmpeg lacks graph support.
+            pass
     return _render_video_pil(
         product_name=product_name,
         output_dir=output_dir,
@@ -914,10 +928,7 @@ def _render_video_pil(
                 f"({available_duration:.1f}s available; {required_duration:.1f}s required)."
             )
     if not visual_images and not video_sources and not preview:
-        raise ValueError(
-            "A final product video requires real product screenshots or product screen recordings. "
-            "Add captures to assets/screenshots/ or recordings to assets/videos/."
-        )
+        raise ValueError(_NO_PRODUCT_VISUALS)
     video_asset_count = len(video_sources)
     with tempfile.NamedTemporaryFile(
         prefix=f".{video_name}.", suffix=".tmp.mp4", dir=output_path, delete=False

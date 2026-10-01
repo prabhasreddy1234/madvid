@@ -1,6 +1,6 @@
-from dataclasses import FrozenInstanceError
 import subprocess
 import wave
+from dataclasses import FrozenInstanceError
 
 import imageio.v2 as iio
 import imageio_ffmpeg
@@ -10,9 +10,11 @@ from PIL import Image
 
 from madvid import MADVID, LocalProvider, generate_video
 from madvid.asset_manager import discover_video_assets
+from madvid.ffmpeg_renderer import render_video_ffmpeg
 from madvid.models import StoryboardScene
-from madvid.styles import get_style
 from madvid.storyboard_generator import generate_storyboard
+from madvid.styles import get_style
+import madvid.video_renderer as video_renderer
 from madvid.video_renderer import _apply_transition, _make_frame, render_video
 
 
@@ -21,6 +23,47 @@ def test_style_presets_are_immutable():
 
     with pytest.raises(FrozenInstanceError):
         style.accent = "#ffffff"
+
+
+def test_ffmpeg_renderer_maps_screenshot_input_after_background(tmp_path, monkeypatch):
+    screenshot_path = tmp_path / "screenshot.png"
+    Image.new("RGB", (96, 64), (35, 150, 100)).save(screenshot_path)
+    storyboard = generate_storyboard(product_name="Demo App", duration=3)[:1]
+    commands = []
+
+    def fail_render(command, **kwargs):
+        commands.append(command)
+        raise subprocess.CalledProcessError(8, command)
+
+    monkeypatch.setattr("madvid.ffmpeg_renderer._ffmpeg", lambda: "ffmpeg")
+    monkeypatch.setattr("madvid.ffmpeg_renderer.subprocess.run", fail_render)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        render_video_ffmpeg(
+            product_name="Demo App",
+            output_dir=str(tmp_path),
+            duration=3,
+            preview=True,
+            storyboard=storyboard,
+            visual_assets=[str(screenshot_path)],
+        )
+
+    filtergraph = commands[0][commands[0].index("-filter_complex") + 1]
+    assert "[1:v]" in filtergraph
+    assert "[0:v]" not in filtergraph
+
+
+def test_ffmpeg_filtergraph_failure_falls_back_to_pil(tmp_path, monkeypatch):
+    fallback_result = (str(tmp_path / "preview.mp4"), str(tmp_path / "metadata.json"))
+
+    def fail_render(**kwargs):
+        raise subprocess.CalledProcessError(8, ["ffmpeg"])
+
+    monkeypatch.setattr(video_renderer, "_ffmpeg_available", lambda: True)
+    monkeypatch.setattr("madvid.ffmpeg_renderer.render_video_ffmpeg", fail_render)
+    monkeypatch.setattr(video_renderer, "_render_video_pil", lambda **kwargs: fallback_result)
+
+    assert video_renderer.render_video("Demo App", output_dir=str(tmp_path), preview=True) == fallback_result
 
 
 def test_library_generates_video_from_project(tmp_path):
