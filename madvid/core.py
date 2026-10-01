@@ -121,6 +121,7 @@ class MADVID:
             voiceover_audio=voiceover_audio,
             music_audio=music_audio,
             brand_colors=product.brand_colors or None,
+            tagline=product.tagline or "",
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = "PROJECT"
@@ -174,6 +175,7 @@ class MADVID:
             voiceover_audio=voiceover_audio,
             music_audio=music_audio,
             brand_colors=product.brand_colors or None,
+            tagline=product.tagline or "",
         )
         metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
         metadata["source_type"] = source_type.value

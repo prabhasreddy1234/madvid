@@ -1,4 +1,4 @@
-"""Local-friendly video composition pipeline for MADVID."""
+"""Video composition pipeline for MADVID."""
 
 from __future__ import annotations
 
@@ -17,6 +17,22 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .asset_manager import ensure_output_dir, write_json
 from .styles import get_style
+
+
+def _ffmpeg_available() -> bool:
+    try:
+        import imageio_ffmpeg as _iff
+        exe = _iff.get_ffmpeg_exe()
+        result = subprocess.run(
+            [exe, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        # Require xfade filter (FFmpeg 4.3+)
+        probe = subprocess.run(
+            [exe, "-filters"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        return result.returncode == 0 and b"xfade" in probe.stdout
+    except Exception:
+        return False
 
 
 def _resolve_resolution(orientation: str, preview: bool = False) -> tuple[int, int]:
@@ -796,6 +812,60 @@ def _add_premium_sound_design(video_path, duration: int, storyboard: list) -> No
 
 
 def render_video(
+    product_name: str,
+    output_dir: str = "madvid-output",
+    duration: int = 20,
+    style: str = "premium",
+    orientation: str = "landscape",
+    preview: bool = False,
+    storyboard: list | None = None,
+    visual_assets: list[str] | None = None,
+    video_assets: list[str] | None = None,
+    voiceover_audio: str | None = None,
+    music_audio: str | None = None,
+    brand_colors: dict[str, str] | None = None,
+    tagline: str = "",
+) -> tuple[str, str]:
+    """Render a marketing-grade product video.
+
+    Uses the FFmpeg filtergraph renderer (kinetic text, animated gradients,
+    scene-specific layouts, xfade transitions) when FFmpeg 4.3+ is available.
+    Falls back to the PIL frame renderer otherwise.
+    """
+    if _ffmpeg_available() and not video_assets:
+        from .ffmpeg_renderer import render_video_ffmpeg
+        return render_video_ffmpeg(
+            product_name=product_name,
+            output_dir=output_dir,
+            duration=duration,
+            style=style,
+            orientation=orientation,
+            preview=preview,
+            storyboard=storyboard,
+            visual_assets=visual_assets,
+            video_assets=video_assets,
+            voiceover_audio=voiceover_audio,
+            music_audio=music_audio,
+            brand_colors=brand_colors,
+            tagline=tagline,
+        )
+    return _render_video_pil(
+        product_name=product_name,
+        output_dir=output_dir,
+        duration=duration,
+        style=style,
+        orientation=orientation,
+        preview=preview,
+        storyboard=storyboard,
+        visual_assets=visual_assets,
+        video_assets=video_assets,
+        voiceover_audio=voiceover_audio,
+        music_audio=music_audio,
+        brand_colors=brand_colors,
+    )
+
+
+def _render_video_pil(
     product_name: str,
     output_dir: str = "madvid-output",
     duration: int = 20,
