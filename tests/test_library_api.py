@@ -1,3 +1,4 @@
+from dataclasses import FrozenInstanceError
 import subprocess
 import wave
 
@@ -10,8 +11,16 @@ from PIL import Image
 from madvid import MADVID, LocalProvider, generate_video
 from madvid.asset_manager import discover_video_assets
 from madvid.models import StoryboardScene
+from madvid.styles import get_style
 from madvid.storyboard_generator import generate_storyboard
 from madvid.video_renderer import _apply_transition, _make_frame, render_video
+
+
+def test_style_presets_are_immutable():
+    style = get_style("minimal")
+
+    with pytest.raises(FrozenInstanceError):
+        style.accent = "#ffffff"
 
 
 def test_library_generates_video_from_project(tmp_path):
