@@ -73,8 +73,9 @@ def _compose_premium_shot(
     scene: object | None,
     progress: float,
     style_name: str = "premium",
+    brand_colors: dict[str, str] | None = None,
 ) -> Image.Image:
-    style = get_style(style_name)
+    style = get_style(style_name, brand_colors)
     accent = _rgb(style.accent)
     eased = progress * progress * (3 - 2 * progress)
     frame = Image.new("RGB", (width, height), _rgb(style.background))
@@ -271,11 +272,12 @@ def _compose_shot(
     scene_index: int,
     scene_count: int,
     progress: float,
+    brand_colors: dict[str, str] | None = None,
 ) -> Image.Image:
     if style_name.lower() == "premium" or (style_name.lower() == "cinematic" and width >= height):
-        return _compose_premium_shot(width, height, image, scene, progress, style_name.lower())
+        return _compose_premium_shot(width, height, image, scene, progress, style_name.lower(), brand_colors)
 
-    style = get_style(style_name)
+    style = get_style(style_name, brand_colors)
     background = _rgb(style.background)
     accent = _rgb(style.accent)
     foreground = _rgb(style.secondary)
@@ -661,6 +663,7 @@ def _make_frame(
     total_frames: int,
     visual_images: list[Image.Image] | None = None,
     storyboard: list | None = None,
+    brand_colors: dict[str, str] | None = None,
 ) -> Image.Image:
     images = visual_images or []
     scenes = storyboard or []
@@ -674,7 +677,7 @@ def _make_frame(
         width, height, product_name, style_name,
         images[image_index] if image_index is not None else None,
         scenes[scene_index] if scene_index is not None else None,
-        shot_index, shot_count, shot_progress,
+        shot_index, shot_count, shot_progress, brand_colors,
     )
 
     transition_frames = min(int(24 * 0.45), max(1, int(frames_per_shot // 3)))
@@ -687,7 +690,7 @@ def _make_frame(
             width, height, product_name, style_name,
             images[previous_image_index] if previous_image_index is not None else None,
             scenes[previous_scene_index] if previous_scene_index is not None else None,
-            previous_index, shot_count, 1.0,
+            previous_index, shot_count, 1.0, brand_colors,
         )
         transition = getattr(scenes[scene_index], "transition", "Cross dissolve") if scenes else "Cross dissolve"
         transition_progress = min(1.0, local_frame / transition_frames)
@@ -804,6 +807,7 @@ def render_video(
     video_assets: list[str] | None = None,
     voiceover_audio: str | None = None,
     music_audio: str | None = None,
+    brand_colors: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     output_path = ensure_output_dir(output_dir)
     width, height = _resolve_resolution(orientation, preview=preview)
@@ -859,7 +863,7 @@ def render_video(
                 if video_sources
                 else visual_images
             )
-            frame = _make_frame(width, height, product_name, style, index, total_frames, frame_images, storyboard)
+            frame = _make_frame(width, height, product_name, style, index, total_frames, frame_images, storyboard, brand_colors)
             writer.append_data(np.asarray(frame))
         writer.close()
         writer = None

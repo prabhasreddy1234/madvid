@@ -48,3 +48,6 @@ class ProductContext:
     source_type: str = "PROJECT"
     source_url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    brand_colors: dict[str, str] = field(default_factory=dict)
+    tagline: str = ""
+    scene_hooks: list[str] = field(default_factory=list)

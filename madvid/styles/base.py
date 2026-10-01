@@ -21,3 +21,13 @@ class StyleTemplate:
             "secondary": self.secondary,
             "transition": self.transition,
         }
+
+    def with_brand_colors(self, brand_colors: dict[str, str]) -> "StyleTemplate":
+        """Return a copy overridden with product brand colors from LLM analysis."""
+        return StyleTemplate(
+            name=self.name,
+            accent=brand_colors.get("accent", self.accent),
+            background=brand_colors.get("background", self.background),
+            secondary=brand_colors.get("secondary", self.secondary),
+            transition=self.transition,
+        )

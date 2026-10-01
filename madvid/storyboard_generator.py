@@ -39,11 +39,15 @@ def generate_storyboard(
     important_screens: list[str] | None = None,
     visual_identity: str = "",
     target_user: str = "",
+    tagline: str = "",
+    scene_hooks: list[str] | None = None,
 ) -> list[StoryboardScene]:
     features = features or ["Explore the core workflow", "Complete key actions", "Reach a clear result"]
     workflow = primary_workflow.strip() or features[0]
     promise = value_proposition.strip() or f"A clearer way to use {product_name}."
+    hook = tagline.strip() or promise
     action = cta.strip() or "Explore the product"
+    hooks = list(scene_hooks or [])
     key_features = features[1:] if workflow == features[0] else features
     key_features = (key_features or [workflow])[:3 if duration >= 25 else 2]
     source_label = source_type.upper()
@@ -66,12 +70,15 @@ def generate_storyboard(
             f"({product_category}){audience}; {direction}"
         )
 
+    def _hook(index: int, fallback: str) -> str:
+        return hooks[index] if index < len(hooks) else fallback
+
     timeline = [
         (
             "Opening hook",
             visual(0, "Lead with the product promise over an immediate real UI reveal"),
-            promise,
-            promise,
+            hook,
+            hook,
             "Product hook",
         ),
         (
@@ -84,8 +91,8 @@ def generate_storyboard(
         (
             "Primary workflow",
             visual(1, "Show the primary workflow clearly, using authentic product UI"),
-            workflow,
-            workflow,
+            _hook(2, workflow),
+            _hook(2, workflow),
             "Core workflow",
         ),
     ]
@@ -94,8 +101,8 @@ def generate_storyboard(
             (
                 "Feature spotlight",
                 visual(2 + feature_index, "Land on a real feature detail and let the benefit read"),
-                feature,
-                feature,
+                _hook(3 + feature_index, feature),
+                _hook(3 + feature_index, feature),
                 f"Feature {feature_index + 1}",
             )
         )
@@ -142,4 +149,6 @@ def generate_storyboard_from_product(product: ProductContext, duration: int = 20
         important_screens=product.important_screens,
         visual_identity=product.visual_identity,
         target_user=product.target_user,
+        tagline=product.tagline,
+        scene_hooks=product.scene_hooks,
     )
