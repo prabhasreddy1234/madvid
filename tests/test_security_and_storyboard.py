@@ -50,9 +50,9 @@ def test_storyboard_visuals_match_website_and_mobile_app_sources():
         important_screens=["Welcome screen", "Daily plan", "Completed task"],
     )
 
-    assert "Website screen: Workspace" in website[2].visual
+    assert "website screen of Workspace" in website[2].visual
     assert "Clean product interface" in website[0].visual
     assert "for Operations teams" in website[0].visual
-    assert "Mobile app screen: Daily plan" in mobile_app[2].visual
+    assert "mobile app screen of Daily plan" in mobile_app[2].visual
     assert "Daily plan" in mobile_app[2].visual
     assert all(scene.transition != "Light flash" for scene in website)

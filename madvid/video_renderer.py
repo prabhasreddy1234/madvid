@@ -96,7 +96,7 @@ def _draw_product_concept(
     muted = (137, 146, 162, 255)
     card = (34, 40, 52, 255)
     border = (57, 65, 80, 255)
-    pad = max(14, int(min(width, height) * 0.055))
+    pad = max(4, min(24, int(min(width, height) * 0.055), int(width * 0.05)))
     header_height = max(38, int(height * 0.105))
     title_font = _font(max(14, int(min(width, height) * 0.065)), True)
     small_font = _font(max(8, int(min(width, height) * 0.026)), True)

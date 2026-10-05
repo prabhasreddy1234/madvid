@@ -11,7 +11,13 @@ def test_analyze_website_extracts_title_and_value(monkeypatch):
             <title>Acme Flow</title>
             <meta name="description" content="Track work and shipping in one place." />
           </head>
-          <body><h1>Acme Flow</h1></body>
+          <body>
+            <h1>Acme Flow</h1>
+            <h2>Plan launches without the busywork</h2>
+            <h2>Track every milestone</h2>
+            <a href="/demo">Book a demo</a>
+            <script>Not a product feature</script>
+          </body>
         </html>
         """
 
@@ -19,6 +25,10 @@ def test_analyze_website_extracts_title_and_value(monkeypatch):
     context = analyze_website("https://example.com")
     assert context.product_name == "Acme Flow"
     assert "shipping" in context.value_proposition.lower()
+    assert context.primary_workflow == "Plan launches without the busywork"
+    assert "Track every milestone" in context.features
+    assert context.cta == "Book a demo"
+    assert "Not a product feature" not in context.metadata["headings"]
 
 
 def test_analyze_store_url_identifies_play_store_listing(monkeypatch):

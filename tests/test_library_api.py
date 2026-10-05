@@ -99,9 +99,9 @@ def test_library_generates_video_from_project(tmp_path):
 
 def test_final_render_generates_animated_product_concept_without_screenshot(tmp_path, monkeypatch):
     monkeypatch.setattr(video_renderer, "_ffmpeg_available", lambda: False)
-    monkeypatch.setattr(video_renderer, "_resolve_resolution", lambda orientation, preview=False: (480, 270))
+    monkeypatch.setattr(video_renderer, "_resolve_resolution", lambda orientation, preview=False: (240, 136))
 
-    result = render_video("Demo App", output_dir=str(tmp_path), duration=15, style="premium")
+    result = render_video("Demo App", output_dir=str(tmp_path), duration=15, style="minimal")
 
     assert result[0].endswith("product-intro.mp4")
     assert result[1].endswith("metadata.json")
