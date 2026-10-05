@@ -123,7 +123,7 @@ Generate vertical output:
 madvid --vertical --duration 18 --style premium
 ```
 
-For a production export, place screen recordings in `assets/videos/` or `assets/recordings/` using `.mp4`, `.mov`, `.m4v`, `.webm`, or `.mkv`. MADVID maps clips in filename order across the storyboard, preserves their recorded frame rate, and rejects recordings that are too short for their assigned timeline. Clip audio is not used; supply narration or music separately. When no clips are found, MADVID uses still product captures from `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`. A final export requires real recordings or screenshots; preview mode can run without either and labels its generic mockup in the metadata.
+For a production export, place screen recordings in `assets/videos/` or `assets/recordings/` using `.mp4`, `.mov`, `.m4v`, `.webm`, or `.mkv`. MADVID maps clips in filename order across the storyboard, preserves their recorded frame rate, and rejects recordings that are too short for their assigned timeline. Clip audio is not used; supply narration or music separately. Still product captures can be placed in `assets/screenshots/`, `screenshots/`, `screens/`, or `public/`; storyboards reserve at most two brief workflow proof moments for authentic UI. Exports work without captures and use animated, brand-colored interface concepts grounded in product analysis instead of a screenshot slideshow. These concepts are illustrative, not representations of the actual app UI.
 
 Supply recorded narration and licensed music to include real audio in the MP4:
 

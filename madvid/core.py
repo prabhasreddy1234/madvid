@@ -33,7 +33,7 @@ class MADVID:
     def __init__(self, llm_provider: LLMProvider | None = None):
         self.llm_provider = llm_provider or LocalProvider()
 
-    def _enrich_product(self, product, *, source_label: str | None = None) -> object:
+    def _enrich_product(self, product, *, source_label: str | None = None, duration: int = 20) -> object:
         if not hasattr(self.llm_provider, "analyze"):
             return product
 
@@ -47,6 +47,10 @@ class MADVID:
             f"- brand_colors: object with 'accent' (primary brand hex), 'background' (dark bg hex), 'secondary' (light text hex)\n"
             f"- target_user: who this product is for (max 40 chars)\n"
             f"- primary_workflow: the single most important thing a user does (max 80 chars)\n"
+            f"\nCreate the story for a {duration}-second product intro/demo, within the 15-30 second format. "
+            f"Make it motion-led, not a screenshot slideshow: use an animated hook, product reveal, benefit-led workflow, and clear CTA. "
+            f"Reserve authentic UI captures for at most two short proof moments; use brand motion graphics elsewhere. "
+            f"Ground every claim in the supplied product context and do not invent capabilities.\n"
             f"\nProduct: {getattr(product, 'product_name', 'Product')}\n"
             f"Category: {getattr(product, 'product_category', 'General product')}\n"
             f"Current features: {getattr(product, 'features', [])}\n"
@@ -105,7 +109,7 @@ class MADVID:
         music_audio: str | None = None,
     ) -> dict:
         product = analyze_project(project_root)
-        product = self._enrich_product(product, source_label="PROJECT")
+        product = self._enrich_product(product, source_label="PROJECT", duration=duration)
         storyboard = generate_storyboard_from_product(product, duration=duration)
         output_dir = str(Path(project_root) / "madvid-output")
         video_path, metadata_path = render_video(
@@ -159,7 +163,7 @@ class MADVID:
             product = analyze_store_url(source_url)
         else:
             product = analyze_project(project_root)
-        product = self._enrich_product(product, source_label=source_type.value)
+        product = self._enrich_product(product, source_label=source_type.value, duration=duration)
         storyboard = generate_storyboard_from_product(product, duration=duration)
         output_dir = str(Path(project_root) / "madvid-output")
         video_path, metadata_path = render_video(

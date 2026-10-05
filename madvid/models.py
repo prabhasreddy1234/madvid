@@ -19,6 +19,7 @@ class StoryboardScene:
     highlight_box: tuple[float, float, float, float] | None = None
     cursor_target: tuple[float, float] | None = None
     cursor_click: bool = False
+    use_product_capture: bool | None = None
 
     def as_markdown(self) -> str:
         lines = [

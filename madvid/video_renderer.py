@@ -18,12 +18,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from .asset_manager import ensure_output_dir, write_json
 from .styles import get_style
 
-_NO_PRODUCT_VISUALS = (
-    "A final product video requires real product screenshots or product screen recordings. "
-    "Add captures to assets/screenshots/ or recordings to assets/videos/."
-)
-
-
 def _ffmpeg_available() -> bool:
     try:
         import imageio_ffmpeg as _iff
@@ -87,9 +81,130 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, 
     return lines
 
 
+def _draw_product_concept(
+    screen: Image.Image,
+    product_name: str,
+    scene: object | None,
+    progress: float,
+    accent: tuple[int, int, int],
+) -> None:
+    """Animate a branded interface concept when no authentic capture is available."""
+    draw = ImageDraw.Draw(screen)
+    width, height = screen.size
+    horizontal = width >= height
+    foreground = (239, 241, 246, 255)
+    muted = (137, 146, 162, 255)
+    card = (34, 40, 52, 255)
+    border = (57, 65, 80, 255)
+    pad = max(14, int(min(width, height) * 0.055))
+    header_height = max(38, int(height * 0.105))
+    title_font = _font(max(14, int(min(width, height) * 0.065)), True)
+    small_font = _font(max(8, int(min(width, height) * 0.026)), True)
+
+    draw.rectangle((0, 0, width, height), fill=(19, 23, 31, 255))
+    if horizontal:
+        nav_width = int(width * 0.16)
+        draw.rectangle((0, 0, nav_width, height), fill=(24, 29, 39, 255))
+        mark_size = max(12, int(width * 0.025))
+        draw.rounded_rectangle((pad, pad, pad + mark_size, pad + mark_size), radius=4, fill=(*accent, 255))
+        for row in range(4):
+            y = header_height + pad + row * max(24, int(height * 0.085))
+            draw.rounded_rectangle(
+                (pad, y, nav_width - pad, y + max(5, int(height * 0.018))),
+                radius=3,
+                fill=(*accent, 170) if row == 0 else border,
+            )
+        content_left = nav_width + pad
+        content_width = width - content_left - pad
+    else:
+        content_left = pad
+        content_width = width - pad * 2
+
+    scene_name = (getattr(scene, "scene", "") or "").lower()
+    screen_title = (
+        "Your workspace" if "hook" in scene_name or "opening" in scene_name else
+        "A clearer overview" if "reveal" in scene_name else
+        "Work in progress" if "workflow" in scene_name else
+        "Everything, in sync"
+    )
+    draw.text((content_left, pad), product_name[:24], font=small_font, fill=muted)
+    draw.text((content_left, pad + int(height * 0.04)), screen_title, font=title_font, fill=foreground)
+
+    content_top = header_height + pad
+    gap = max(8, int(min(width, height) * 0.035))
+    metric_height = max(45, int(height * (0.19 if horizontal else 0.15)))
+    metric_count = 3 if horizontal else 2
+    metric_width = (content_width - gap * (metric_count - 1)) // metric_count
+    metrics = (("Projects", "12"), ("Completed", "84%"), ("On track", "+24%"))
+    for metric_index, (label, value) in enumerate(metrics[:metric_count]):
+        left = content_left + metric_index * (metric_width + gap)
+        top = content_top
+        draw.rounded_rectangle(
+            (left, top, left + metric_width, top + metric_height),
+            radius=max(6, gap // 2),
+            fill=card,
+            outline=border,
+            width=1,
+        )
+        draw.text((left + gap, top + gap), label, font=small_font, fill=muted)
+        draw.text((left + gap, top + int(metric_height * 0.43)), value, font=title_font, fill=foreground)
+        bar_width = int((metric_width - gap * 2) * min(1.0, 0.42 + progress * 0.42))
+        bar_y = top + metric_height - max(8, gap)
+        draw.rounded_rectangle(
+            (left + gap, bar_y, left + gap + bar_width, bar_y + max(4, gap // 2)),
+            radius=3,
+            fill=(*accent, 230),
+        )
+
+    lower_top = content_top + metric_height + gap
+    lower_height = max(48, height - lower_top - pad)
+    chart_width = int(content_width * (0.62 if horizontal else 1.0))
+    draw.rounded_rectangle(
+        (content_left, lower_top, content_left + chart_width, lower_top + lower_height),
+        radius=max(6, gap // 2),
+        fill=card,
+        outline=border,
+        width=1,
+    )
+    draw.text((content_left + gap, lower_top + gap), "Activity", font=small_font, fill=muted)
+    graph_top = lower_top + int(lower_height * 0.34)
+    graph_bottom = lower_top + int(lower_height * 0.84)
+    graph_left = content_left + gap
+    graph_right = content_left + chart_width - gap
+    points = []
+    for point_index in range(9):
+        x = graph_left + (graph_right - graph_left) * point_index // 8
+        wave = (point_index % 3) * 0.11
+        y = graph_bottom - int((0.23 + point_index * 0.055 + wave) * (graph_bottom - graph_top) * min(1.0, progress * 1.5 + 0.35))
+        points.append((x, y))
+    draw.line(points, fill=(*accent, 255), width=max(2, gap // 3), joint="curve")
+    for x, y in points:
+        draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=foreground)
+
+    if horizontal:
+        list_left = content_left + chart_width + gap
+        list_right = content_left + content_width
+        draw.rounded_rectangle(
+            (list_left, lower_top, list_right, lower_top + lower_height),
+            radius=max(6, gap // 2),
+            fill=card,
+            outline=border,
+            width=1,
+        )
+        for row in range(3):
+            y = lower_top + gap + row * max(22, int(lower_height * 0.24))
+            draw.ellipse((list_left + gap, y + 2, list_left + gap + 7, y + 9), fill=(*accent, 255))
+            draw.rounded_rectangle(
+                (list_left + gap + 14, y + 3, list_right - gap, y + 8),
+                radius=2,
+                fill=border,
+            )
+
+
 def _compose_premium_shot(
     width: int,
     height: int,
+    product_name: str,
     image: Image.Image | None,
     scene: object | None,
     progress: float,
@@ -139,13 +254,7 @@ def _compose_premium_shot(
         screen = camera.crop((crop_left, crop_top, crop_left + panel_width, crop_top + panel_height)).convert("RGBA")
     else:
         screen = Image.new("RGBA", (panel_width, panel_height), (26, 25, 34, 255))
-        ImageDraw.Draw(screen).text(
-            (panel_width // 2, panel_height // 2),
-            "PRODUCT PREVIEW",
-            fill=(205, 204, 216, 255),
-            font=_font(max(16, int(height * 0.035)), True),
-            anchor="mm",
-        )
+        _draw_product_concept(screen, product_name, scene, progress, accent)
 
     screen_mask = Image.new("L", (panel_width, panel_height), 0)
     ImageDraw.Draw(screen_mask).rounded_rectangle(
@@ -296,7 +405,7 @@ def _compose_shot(
     brand_colors: dict[str, str] | None = None,
 ) -> Image.Image:
     if style_name.lower() == "premium" or (style_name.lower() == "cinematic" and width >= height):
-        return _compose_premium_shot(width, height, image, scene, progress, style_name.lower(), brand_colors)
+        return _compose_premium_shot(width, height, product_name, image, scene, progress, style_name.lower(), brand_colors)
 
     style = get_style(style_name, brand_colors)
     background = _rgb(style.background)
@@ -431,14 +540,7 @@ def _compose_shot(
         image_y = chrome_height + max(0, (viewport[1] - zoomed.height) // 2 - int((eased - 0.5) * panel_height * 0.012))
         panel_layer.alpha_composite(zoomed.convert("RGBA"), (image_x, image_y))
     elif image is None:
-        preview_font = _font(max(12, int(height * 0.02)), True)
-        panel_draw.text(
-            (panel_width // 2, chrome_height + (panel_height - chrome_height) // 2),
-            "PRODUCT PREVIEW",
-            fill=(142, 149, 160, 255),
-            font=preview_font,
-            anchor="mm",
-        )
+        _draw_product_concept(panel_layer, product_name, scene, progress, accent)
     panel_mask = Image.new("L", (panel_width, panel_height), 0)
     ImageDraw.Draw(panel_mask).rounded_rectangle((0, 0, panel_width - 1, panel_height - 1), radius=radius, fill=255)
     panel_layer.putalpha(panel_mask)
@@ -675,6 +777,23 @@ def _validate_export(video_path, width: int, height: int, duration: int, expect_
             raise RuntimeError("Rendered audio track failed decoding") from exc
 
 
+def _scene_image_index(scenes: list, scene_index: int | None, image_count: int, fallback_index: int) -> int | None:
+    if image_count == 0:
+        return None
+    if scene_index is None or not scenes:
+        return min(fallback_index, image_count - 1)
+    if getattr(scenes[scene_index], "use_product_capture", None) is False:
+        return None
+    capture_scenes = [
+        index for index, scene in enumerate(scenes)
+        if getattr(scene, "use_product_capture", None) is not False
+    ]
+    if not capture_scenes:
+        return None
+    capture_rank = capture_scenes.index(scene_index)
+    return min(capture_rank * image_count // len(capture_scenes), image_count - 1)
+
+
 def _make_frame(
     width: int,
     height: int,
@@ -688,12 +807,12 @@ def _make_frame(
 ) -> Image.Image:
     images = visual_images or []
     scenes = storyboard or []
-    shot_count = max(len(images), len(scenes), 1)
+    shot_count = max(len(scenes), 1) if scenes else max(len(images), 1)
     frames_per_shot = max(total_frames / shot_count, 1)
     shot_index = min(int(frame_index / frames_per_shot), shot_count - 1)
     shot_progress = min(1.0, max(0.0, (frame_index - shot_index * frames_per_shot) / frames_per_shot))
-    image_index = min(shot_index * len(images) // shot_count, len(images) - 1) if images else None
     scene_index = min(shot_index * len(scenes) // shot_count, len(scenes) - 1) if scenes else None
+    image_index = _scene_image_index(scenes, scene_index, len(images), shot_index)
     current = _compose_shot(
         width, height, product_name, style_name,
         images[image_index] if image_index is not None else None,
@@ -705,8 +824,8 @@ def _make_frame(
     local_frame = frame_index - shot_index * frames_per_shot
     if shot_index > 0 and local_frame < transition_frames:
         previous_index = shot_index - 1
-        previous_image_index = min(previous_index * len(images) // shot_count, len(images) - 1) if images else None
         previous_scene_index = min(previous_index * len(scenes) // shot_count, len(scenes) - 1) if scenes else None
+        previous_image_index = _scene_image_index(scenes, previous_scene_index, len(images), previous_index)
         previous = _compose_shot(
             width, height, product_name, style_name,
             images[previous_image_index] if previous_image_index is not None else None,
@@ -839,10 +958,7 @@ def render_video(
     """
     has_visual_file = any(os.path.isfile(path) for path in visual_assets or [])
     has_video_file = any(os.path.isfile(path) for path in video_assets or [])
-    if not preview and not has_visual_file and not has_video_file:
-        raise ValueError(_NO_PRODUCT_VISUALS)
-
-    if _ffmpeg_available() and not video_assets:
+    if _ffmpeg_available() and not video_assets and has_visual_file:
         from .ffmpeg_renderer import render_video_ffmpeg
         try:
             return render_video_ffmpeg(
@@ -927,8 +1043,6 @@ def _render_video_pil(
                 f"Screen recording is too short for its timeline segment "
                 f"({available_duration:.1f}s available; {required_duration:.1f}s required)."
             )
-    if not visual_images and not video_sources and not preview:
-        raise ValueError(_NO_PRODUCT_VISUALS)
     video_asset_count = len(video_sources)
     with tempfile.NamedTemporaryFile(
         prefix=f".{video_name}.", suffix=".tmp.mp4", dir=output_path, delete=False
@@ -985,7 +1099,7 @@ def _render_video_pil(
         "visualSource": (
             "product_video_clips" if video_asset_count else
             "product_screenshots" if visual_images else
-            "no_product_screenshots"
+            "animated_product_concept"
         ),
         "visualAssetCount": len(visual_images),
         "videoAssetCount": video_asset_count,

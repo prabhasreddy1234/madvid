@@ -57,6 +57,16 @@ The skill resolves the source in this order:
 2. current project
 3. request user input if necessary
 
+## Product video direction
+
+For 15-30 second product introductions, build a motion-led launch story from the
+analyzed product or website context: animated hook, brand/product reveal,
+benefit-led workflow, and clear call to action. Do not make a screenshot
+slideshow. Reserve no more than two short scenes for authentic screenshots as
+workflow proof; use animated typography and interface-inspired motion for the
+other scenes. Never present generated interface concepts as the product's real
+UI, and do not invent features that are not supported by the source context.
+
 ## Output convention
 
 MADVID writes output into `./madvid-output/` with:

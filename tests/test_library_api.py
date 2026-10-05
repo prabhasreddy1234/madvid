@@ -1,6 +1,8 @@
+import json
 import subprocess
 import wave
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 
 import imageio.v2 as iio
 import imageio_ffmpeg
@@ -11,7 +13,7 @@ from PIL import Image
 from madvid import MADVID, LocalProvider, generate_video
 from madvid.asset_manager import discover_video_assets
 from madvid.ffmpeg_renderer import render_video_ffmpeg
-from madvid.models import StoryboardScene
+from madvid.models import ProductContext, StoryboardScene
 from madvid.storyboard_generator import generate_storyboard
 from madvid.styles import get_style
 import madvid.video_renderer as video_renderer
@@ -28,7 +30,7 @@ def test_style_presets_are_immutable():
 def test_ffmpeg_renderer_maps_screenshot_input_after_background(tmp_path, monkeypatch):
     screenshot_path = tmp_path / "screenshot.png"
     Image.new("RGB", (96, 64), (35, 150, 100)).save(screenshot_path)
-    storyboard = generate_storyboard(product_name="Demo App", duration=3)[:1]
+    storyboard = generate_storyboard(product_name="Demo App", duration=3)[2:3]
     commands = []
 
     def fail_render(command, **kwargs):
@@ -55,6 +57,8 @@ def test_ffmpeg_renderer_maps_screenshot_input_after_background(tmp_path, monkey
 
 def test_ffmpeg_filtergraph_failure_falls_back_to_pil(tmp_path, monkeypatch):
     fallback_result = (str(tmp_path / "preview.mp4"), str(tmp_path / "metadata.json"))
+    screenshot_path = tmp_path / "screenshot.png"
+    Image.new("RGB", (96, 64), (35, 150, 100)).save(screenshot_path)
 
     def fail_render(**kwargs):
         raise subprocess.CalledProcessError(8, ["ffmpeg"])
@@ -63,7 +67,9 @@ def test_ffmpeg_filtergraph_failure_falls_back_to_pil(tmp_path, monkeypatch):
     monkeypatch.setattr("madvid.ffmpeg_renderer.render_video_ffmpeg", fail_render)
     monkeypatch.setattr(video_renderer, "_render_video_pil", lambda **kwargs: fallback_result)
 
-    assert video_renderer.render_video("Demo App", output_dir=str(tmp_path), preview=True) == fallback_result
+    assert video_renderer.render_video(
+        "Demo App", output_dir=str(tmp_path), preview=True, visual_assets=[str(screenshot_path)]
+    ) == fallback_result
 
 
 def test_library_generates_video_from_project(tmp_path):
@@ -91,9 +97,41 @@ def test_library_generates_video_from_project(tmp_path):
     assert result["storyboard"][-1].text_overlay == "Explore the product"
 
 
-def test_final_render_requires_real_product_screenshot(tmp_path):
-    with pytest.raises(ValueError, match="requires real product screenshots"):
-        render_video("Demo App", output_dir=str(tmp_path), duration=15)
+def test_final_render_generates_animated_product_concept_without_screenshot(tmp_path, monkeypatch):
+    monkeypatch.setattr(video_renderer, "_ffmpeg_available", lambda: False)
+    monkeypatch.setattr(video_renderer, "_resolve_resolution", lambda orientation, preview=False: (480, 270))
+
+    result = render_video("Demo App", output_dir=str(tmp_path), duration=15, style="premium")
+
+    assert result[0].endswith("product-intro.mp4")
+    assert result[1].endswith("metadata.json")
+    metadata = json.loads(Path(result[1]).read_text(encoding="utf-8"))
+    assert metadata["duration"] == 15
+    assert metadata["visualSource"] == "animated_product_concept"
+    reader = iio.get_reader(result[0])
+    try:
+        assert not np.array_equal(reader.get_data(0), reader.get_data(20))
+    finally:
+        reader.close()
+
+
+def test_llm_receives_motion_led_product_video_brief():
+    prompts = []
+
+    class PromptProvider:
+        name = "prompt-test"
+
+        def analyze(self, prompt, context=None):
+            prompts.append(prompt)
+            return "{}"
+
+    MADVID(llm_provider=PromptProvider())._enrich_product(
+        ProductContext(product_name="Demo App"), source_label="WEBSITE", duration=25
+    )
+
+    assert "25-second product intro/demo" in prompts[0]
+    assert "not a screenshot slideshow" in prompts[0]
+    assert "at most two short proof moments" in prompts[0]
 
 
 def test_discover_video_assets_finds_recordings_and_ignores_build_output(tmp_path):
@@ -316,4 +354,4 @@ def test_generate_video_function_uses_project_root_and_provider(tmp_path):
 
     assert result["metadata"]["style"] == "cinematic"
     assert result["metadata"]["duration"] == 20
-    assert result["metadata"]["visualSource"] == "no_product_screenshots"
+    assert result["metadata"]["visualSource"] == "animated_product_concept"

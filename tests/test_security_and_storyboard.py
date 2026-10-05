@@ -28,6 +28,10 @@ def test_generate_storyboard_creates_scene_sequence():
     assert storyboard[0].voice_over == "Keep every project moving in one place."
     assert storyboard[-1].text_overlay == "Start your project"
     assert "Example App" in storyboard[0].visual
+    assert sum(scene.use_product_capture is True for scene in storyboard) <= 2
+    assert storyboard[0].use_product_capture is False
+    assert storyboard[-1].use_product_capture is False
+    assert "do not use a screenshot" in storyboard[0].visual
 
 
 def test_storyboard_visuals_match_website_and_mobile_app_sources():
@@ -46,9 +50,9 @@ def test_storyboard_visuals_match_website_and_mobile_app_sources():
         important_screens=["Welcome screen", "Daily plan", "Completed task"],
     )
 
-    assert "Website screen: Landing page" in website[0].visual
+    assert "Website screen: Workspace" in website[2].visual
     assert "Clean product interface" in website[0].visual
     assert "for Operations teams" in website[0].visual
-    assert "Mobile app screen: Welcome screen" in mobile_app[0].visual
+    assert "Mobile app screen: Daily plan" in mobile_app[2].visual
     assert "Daily plan" in mobile_app[2].visual
     assert all(scene.transition != "Light flash" for scene in website)

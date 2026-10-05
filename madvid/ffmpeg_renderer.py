@@ -440,8 +440,16 @@ def render_video_ffmpeg(
     tmp_files: list[str] = []
 
     try:
+        capture_scenes = [
+            index for index, scene in enumerate(scenes)
+            if getattr(scene, "use_product_capture", None) is not False
+        ]
         for idx, scene in enumerate(scenes):
-            img_path = images[min(idx * len(images) // scene_count, len(images) - 1)] if images else None
+            if images and idx in capture_scenes:
+                capture_rank = capture_scenes.index(idx)
+                img_path = images[min(capture_rank * len(images) // len(capture_scenes), len(images) - 1)]
+            else:
+                img_path = None
             scene_dur = scene_duration
 
             # Build filtergraph for this scene
