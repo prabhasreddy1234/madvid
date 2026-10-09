@@ -312,7 +312,3 @@ ruff check .
 ## Contributing
 
 Contributions are welcome. Please keep changes focused, add tests for behavior changes, and follow the current project structure.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
